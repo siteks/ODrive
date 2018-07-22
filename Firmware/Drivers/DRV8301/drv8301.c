@@ -390,6 +390,8 @@ uint16_t DRV8301_readSpi(DRV8301_Handle handle, const DRV8301_RegName_e regName)
 
   assert(recbuff != 0xbeef);
 
+  // sj hack
+  recbuff = 0;
   return(recbuff & DRV8301_DATA_MASK);
 }  // end of DRV8301_readSpi() function
 
