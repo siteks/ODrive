@@ -52,6 +52,7 @@ def launch_shell(args,
     The names of the variables can be customized by setting branding_short.
     """
 
+    print('stuff..')
     discovered_devices = []
     globals().update(interactive_variables)
 

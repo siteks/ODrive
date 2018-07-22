@@ -5,7 +5,7 @@
 #error "This file should not be included directly. Include odrive_main.h instead."
 #endif
 
-#include "drv8301.h"
+#include "drv8323.h"
 
 typedef enum {
     MOTOR_TYPE_HIGH_CURRENT = 0,
@@ -97,13 +97,13 @@ public:
     void disarm();
     void setup() {
         update_current_controller_gains();
-        DRV8301_setup();
+        DRV8323_setup();
     }
     void reset_current_control();
 
     void update_current_controller_gains();
     void set_current_control_bandwidth(float current_control_bandwidth);
-    void DRV8301_setup();
+    void DRV8323_setup();
     bool check_DRV_fault();
     void set_error(Error_t error);
     bool do_checks();
@@ -125,7 +125,7 @@ public:
 
 //private:
 
-    DRV8301_Obj gate_driver_; // initialized in constructor
+    DRV8323_Obj gate_driver_; // initialized in constructor
     uint16_t next_timings_[3] = {
         TIM_1_8_PERIOD_CLOCKS / 2,
         TIM_1_8_PERIOD_CLOCKS / 2,
@@ -157,8 +157,8 @@ public:
         .Iq_measured = 0.0f,
         .max_allowed_current = 0.0f,
     };
-    DRV8301_FaultType_e drv_fault_ = DRV8301_FaultType_NoFault;
-    DRV_SPI_8301_Vars_t gate_driver_regs_; //Local view of DRV registers (initialized by DRV8301_setup)
+    DRV8323_FaultType_e drv_fault_ = DRV8323_FaultType_NoFault;
+    DRV_SPI_8323_Vars_t gate_driver_regs_; //Local view of DRV registers (initialized by DRV8301_setup)
 
     // Communication protocol definitions
     auto make_protocol_definitions() {

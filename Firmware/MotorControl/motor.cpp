@@ -1,7 +1,7 @@
 
 #include <algorithm>
 
-#include "drv8301.h"
+#include "drv8323.h"
 #include "odrive_main.h"
 
 
@@ -68,7 +68,7 @@ void Motor::set_current_control_bandwidth(float current_control_bandwidth) {
 }
 
 // @brief Set up the gate drivers
-void Motor::DRV8301_setup() {
+void Motor::DRV8323_setup() {
     // for reference:
     // 20V/V on 500uOhm gives a range of +/- 150A
     // 40V/V on 500uOhm gives a range of +/- 75A
@@ -83,16 +83,16 @@ void Motor::DRV8301_setup() {
     float requested_gain = max_unity_gain_current / config_.requested_current_range; // [V/V]
 
     // Decoding array for snapping gain
-    std::array<std::pair<float, DRV8301_ShuntAmpGain_e>, 4> gain_choices = { 
-        std::make_pair(10.0f, DRV8301_ShuntAmpGain_10VpV),
-        std::make_pair(20.0f, DRV8301_ShuntAmpGain_20VpV),
-        std::make_pair(40.0f, DRV8301_ShuntAmpGain_40VpV),
-        std::make_pair(80.0f, DRV8301_ShuntAmpGain_80VpV)
+    std::array<std::pair<float, DRV8323_ShuntAmpGain_e>, 4> gain_choices = { 
+        std::make_pair(10.0f, DRV8323_ShuntAmpGain_10VpV),
+        std::make_pair(20.0f, DRV8323_ShuntAmpGain_20VpV),
+        std::make_pair(40.0f, DRV8323_ShuntAmpGain_40VpV),
+        std::make_pair(80.0f, DRV8323_ShuntAmpGain_80VpV)
     };
 
     // We use lower_bound in reverse because it snaps up by default, we want to snap down.
     auto gain_snap_down = std::lower_bound(gain_choices.crbegin(), gain_choices.crend(), requested_gain, 
-    [](std::pair<float, DRV8301_ShuntAmpGain_e> pair, float val){
+    [](std::pair<float, DRV8323_ShuntAmpGain_e> pair, float val){
         return pair.first > val;
     });
 
@@ -106,19 +106,19 @@ void Motor::DRV8301_setup() {
     current_control_.max_allowed_current = max_unity_gain_current * phase_current_rev_gain_;
 
     // We now have the gain settings we want to use, lets set up DRV chip
-    DRV_SPI_8301_Vars_t* local_regs = &gate_driver_regs_;
-    DRV8301_enable(&gate_driver_);
-    DRV8301_setupSpi(&gate_driver_, local_regs);
+    DRV_SPI_8323_Vars_t* local_regs = &gate_driver_regs_;
+    DRV8323_enable(&gate_driver_);
+    DRV8323_setupSpi(&gate_driver_, local_regs);
 
-    local_regs->Ctrl_Reg_1.OC_MODE = DRV8301_OcMode_LatchShutDown;
+    local_regs->Ctrl_Reg_1.OC_MODE = DRV8323_OcMode_LatchShutDown;
     // Overcurrent set to approximately 150A at 100degC. This may need tweaking.
-    local_regs->Ctrl_Reg_1.OC_ADJ_SET = DRV8301_VdsLevel_0p730_V;
+    local_regs->Ctrl_Reg_1.OC_ADJ_SET = DRV8323_VdsLevel_0p730_V;
     local_regs->Ctrl_Reg_2.GAIN = gain_snap_down->second;
 
     local_regs->SndCmd = true;
-    DRV8301_writeData(&gate_driver_, local_regs);
+    DRV8323_writeData(&gate_driver_, local_regs);
     local_regs->RcvCmd = true;
-    DRV8301_readData(&gate_driver_, local_regs);
+    DRV8323_readData(&gate_driver_, local_regs);
 }
 
 // @brief Checks if the gate driver is in operational state.
@@ -128,7 +128,7 @@ bool Motor::check_DRV_fault() {
     GPIO_PinState nFAULT_state = HAL_GPIO_ReadPin(gate_driver_config_.nFAULT_port, gate_driver_config_.nFAULT_pin);
     if (nFAULT_state == GPIO_PIN_RESET) {
         // Update DRV Fault Code
-        drv_fault_ = DRV8301_getFaultType(&gate_driver_);
+        drv_fault_ = DRV8323_getFaultType(&gate_driver_);
         // Update/Cache all SPI device registers
         // DRV_SPI_8301_Vars_t* local_regs = &gate_driver_regs_;
         // local_regs->RcvCmd = true;

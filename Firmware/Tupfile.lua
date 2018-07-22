@@ -124,7 +124,7 @@ end
 
 -- TODO: cleaner separation of the platform code and the rest
 stm_includes += '.'
-stm_includes += 'Drivers/DRV8301'
+stm_includes += 'Drivers/DRV8323'
 stm_sources += boarddir..'/Src/syscalls.c'
 build{
     name='stm_platform',
@@ -146,7 +146,7 @@ build{
     --toolchains={LLVMToolchain('x86_64', {'-Ofast'}, {'-flto'})},
     packages={'stm_platform'},
     sources={
-        'Drivers/DRV8301/drv8301.c',
+        'Drivers/DRV8323/drv8323.c',
         'MotorControl/utils.c',
         'MotorControl/low_level.cpp',
         'MotorControl/nvm.c',
@@ -166,7 +166,7 @@ build{
         'FreeRTOS-openocd.c'
     },
     includes={
-        'Drivers/DRV8301',
+        'Drivers/DRV8323',
         'MotorControl',
         'fibre/cpp/include',
         '.'
