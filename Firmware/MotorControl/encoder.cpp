@@ -109,9 +109,11 @@ static void set_hysteresis(int h)
     write_enc_register(0xd, data);
 }
 
-static uint16_t get_enc_position()
+static int16_t get_enc_position()
 {
-    return read_enc_register(2) & 0x7fff;
+    int16_t a = read_enc_register(2) & 0x7fff; 
+    //a |= (a & 0x4000) << 1;
+    return a;
 }
 
 void Encoder::setup() {
@@ -127,6 +129,10 @@ void Encoder::setup() {
     GPIO_set_dir_output(GPIOB, M0_ENC_DATA, GPIO_PIN_RESET);
 
     set_hysteresis(0);
+    delay_us(10);
+    set_hysteresis(0);
+    delay_us(10);
+
     // volatile int a = 0;
     // while(1)
     // {
@@ -368,8 +374,16 @@ bool Encoder::update() {
             //TODO: use count_in_cpr_ instead as shadow_count_ can overflow
             //or use 64 bit
             //int16_t delta_enc_16 = (int16_t)hw_config_.timer->Instance->CNT - (int16_t)shadow_count_;
-            int16_t delta_enc_16 = get_enc_position() - (int16_t)shadow_count_;
-            delta_enc = (int32_t)delta_enc_16; //sign extend
+            //int16_t delta_enc_16 = get_enc_position() - (int16_t)shadow_count_;
+            //delta_enc = (int32_t)delta_enc_16; //sign extend
+
+            int16_t pos = get_enc_position();
+            int32_t diff = (int32_t)pos - (int32_t)last_pos;
+            last_pos = pos;
+            if (diff < -16384) diff += 32768;
+            else if (diff > 16384) diff -= 32768;
+            delta_enc = (int32_t)diff;
+
         } break;
 
         case MODE_HALL: {

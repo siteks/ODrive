@@ -73,6 +73,7 @@ public:
     float pll_vel_ = 0.0f;  // [rad/s]
     // float pll_kp_ = 0.0f;   // [rad/s / rad]
     // float pll_ki_ = 0.0f;   // [(rad/s^2) / rad]
+    int16_t last_pos = 0;
 
     // Updated by low_level pwm_adc_cb
     uint8_t hall_state_ = 0x0; // bit[0] = HallA, .., bit[2] = HallC
