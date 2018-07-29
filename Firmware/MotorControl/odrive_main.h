@@ -16,6 +16,7 @@ extern "C" {
 // OS includes
 #include <cmsis_os.h>
 
+#define ENCODER_TYPE_TLE5012
 // Hardware configuration
 #if HW_VERSION_MAJOR == 3
 #include "board_config_v3.h"
@@ -35,6 +36,10 @@ extern bool user_config_loaded_;
 
 extern uint64_t serial_number;
 extern char serial_number_str[13];
+
+// Encoder type
+
+
 
 typedef struct {
     bool fully_booted;

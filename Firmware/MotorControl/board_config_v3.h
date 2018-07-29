@@ -15,7 +15,7 @@
 #if HW_VERSION_MINOR <= 3
 #define SHUNT_RESISTANCE (675e-6f)
 #else
-#define SHUNT_RESISTANCE (500e-6f)
+#define SHUNT_RESISTANCE (1000e-6f)
 #endif
 #endif
 
@@ -30,6 +30,14 @@ typedef struct {
 } AxisHardwareConfig_t;
 
 typedef struct {
+#ifdef ENCODER_TYPE_TLE5012
+    GPIO_TypeDef* sck_port;
+    uint16_t sck_pin;
+    GPIO_TypeDef* csq_port;
+    uint16_t csq_pin;
+    GPIO_TypeDef* data_port;
+    uint16_t data_pin;
+#else
     TIM_HandleTypeDef* timer;
     GPIO_TypeDef* index_port;
     uint16_t index_pin;
@@ -39,6 +47,7 @@ typedef struct {
     uint16_t hallB_pin;
     GPIO_TypeDef* hallC_port;
     uint16_t hallC_pin;
+#endif
 } EncoderHardwareConfig_t;
 typedef struct {
     TIM_HandleTypeDef* timer;
@@ -81,6 +90,16 @@ const BoardHardwareConfig_t hw_configs[2] = { {
         .thermistor_adc_ch = 15,
         .thread_priority = (osPriority)(osPriorityHigh + (osPriority)1),
     },
+#ifdef ENCODER_TYPE_TLE5012
+    .encoder_config = {
+        .sck_port = M0_ENC_Z_GPIO_Port,
+        .sck_pin = M0_ENC_Z_Pin,
+        .csq_port = M0_ENC_A_GPIO_Port,
+        .csq_pin = M0_ENC_A_Pin,
+        .data_port = M0_ENC_B_GPIO_Port,
+        .data_pin = M0_ENC_B_Pin,
+    },
+#else
     .encoder_config = {
         .timer = &htim3,
         .index_port = M0_ENC_Z_GPIO_Port,
@@ -92,6 +111,7 @@ const BoardHardwareConfig_t hw_configs[2] = { {
         .hallC_port = M0_ENC_Z_GPIO_Port,
         .hallC_pin = M0_ENC_Z_Pin,
     },
+#endif
     .motor_config = {
         .timer = &htim1,
         .control_deadline = TIM_1_8_PERIOD_CLOCKS,
@@ -128,6 +148,16 @@ const BoardHardwareConfig_t hw_configs[2] = { {
 #endif
         .thread_priority = osPriorityHigh,
     },
+#ifdef ENCODER_TYPE_TLE5012
+    .encoder_config = {
+        .sck_port = M1_ENC_Z_GPIO_Port,
+        .sck_pin = M1_ENC_Z_Pin,
+        .csq_port = M1_ENC_A_GPIO_Port,
+        .csq_pin = M1_ENC_A_Pin,
+        .data_port = M1_ENC_B_GPIO_Port,
+        .data_pin = M1_ENC_B_Pin,
+    },
+#else
     .encoder_config = {
         .timer = &htim4,
         .index_port = M1_ENC_Z_GPIO_Port,
@@ -139,6 +169,7 @@ const BoardHardwareConfig_t hw_configs[2] = { {
         .hallC_port = M1_ENC_Z_GPIO_Port,
         .hallC_pin = M1_ENC_Z_Pin,
     },
+#endif
     .motor_config = {
         .timer = &htim8,
         .control_deadline = (3 * TIM_1_8_PERIOD_CLOCKS) / 2,

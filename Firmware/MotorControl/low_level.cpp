@@ -446,6 +446,7 @@ void vbus_sense_adc_cb(ADC_HandleTypeDef* hadc, bool injected) {
 }
 
 static void decode_hall_samples(Encoder& enc, uint16_t GPIO_samples[num_GPIO]) {
+#ifndef ENCODER_TYPE_TLE5012
     GPIO_TypeDef* hall_ports[] = {
         enc.hw_config_.hallC_port,
         enc.hw_config_.hallB_port,
@@ -472,6 +473,7 @@ static void decode_hall_samples(Encoder& enc, uint16_t GPIO_samples[num_GPIO]) {
     }
 
     enc.hall_state_ = hall_state;
+#endif
 }
 
 // This is the callback from the ADC that we expect after the PWM has triggered an ADC conversion.

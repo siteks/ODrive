@@ -84,10 +84,10 @@ void Motor::DRV8323_setup() {
 
     // Decoding array for snapping gain
     std::array<std::pair<float, DRV8323_ShuntAmpGain_e>, 4> gain_choices = { 
+        std::make_pair(5.0f,  DRV8323_ShuntAmpGain_5VpV),
         std::make_pair(10.0f, DRV8323_ShuntAmpGain_10VpV),
         std::make_pair(20.0f, DRV8323_ShuntAmpGain_20VpV),
-        std::make_pair(40.0f, DRV8323_ShuntAmpGain_40VpV),
-        std::make_pair(80.0f, DRV8323_ShuntAmpGain_80VpV)
+        std::make_pair(40.0f, DRV8323_ShuntAmpGain_40VpV)
     };
 
     // We use lower_bound in reverse because it snaps up by default, we want to snap down.
@@ -105,20 +105,25 @@ void Motor::DRV8323_setup() {
     // Clip all current control to actual usable range
     current_control_.max_allowed_current = max_unity_gain_current * phase_current_rev_gain_;
 
-    // We now have the gain settings we want to use, lets set up DRV chip
-    DRV_SPI_8323_Vars_t* local_regs = &gate_driver_regs_;
+    // We don't really need to do this local register stuff, all that is done
+    // in this setup is to set the current amp gains
     DRV8323_enable(&gate_driver_);
-    DRV8323_setupSpi(&gate_driver_, local_regs);
+    DRV8323_setShuntAmpGain(&gate_driver_, gain_snap_down->second);
 
-    local_regs->Ctrl_Reg_1.OC_MODE = DRV8323_OcMode_LatchShutDown;
+    // We now have the gain settings we want to use, lets set up DRV chip
+    //DRV_SPI_8323_Vars_t* local_regs = &gate_driver_regs_;
+    //DRV8323_enable(&gate_driver_);
+    //DRV8323_setupSpi(&gate_driver_, local_regs);
+
+    //local_regs->Ctrl_Reg_1.OC_MODE = DRV8323_OcMode_LatchShutDown;
     // Overcurrent set to approximately 150A at 100degC. This may need tweaking.
-    local_regs->Ctrl_Reg_1.OC_ADJ_SET = DRV8323_VdsLevel_0p730_V;
-    local_regs->Ctrl_Reg_2.GAIN = gain_snap_down->second;
+    //local_regs->Ctrl_Reg_1.OC_ADJ_SET = DRV8323_VdsLevel_0p730_V;
+    //local_regs->Ctrl_Reg_2.GAIN = gain_snap_down->second;
 
-    local_regs->SndCmd = true;
-    DRV8323_writeData(&gate_driver_, local_regs);
-    local_regs->RcvCmd = true;
-    DRV8323_readData(&gate_driver_, local_regs);
+    //local_regs->SndCmd = true;
+    //DRV8323_writeData(&gate_driver_, local_regs);
+    //local_regs->RcvCmd = true;
+    //DRV8323_readData(&gate_driver_, local_regs);
 }
 
 // @brief Checks if the gate driver is in operational state.
@@ -179,7 +184,7 @@ float Motor::phase_current_from_adcval(uint32_t ADCValue) {
 
 // TODO check Ibeta balance to verify good motor connection
 bool Motor::measure_phase_resistance(float test_current, float max_voltage) {
-    static const float kI = 10.0f;                                 // [(V/s)/A]
+    static const float kI = 50.0f;                                 // [(V/s)/A]
     static const int num_test_cycles = static_cast<int>(3.0f / CURRENT_MEAS_PERIOD); // Test runs for 3s
     float test_voltage = 0.0f;
     

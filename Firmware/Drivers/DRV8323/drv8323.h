@@ -90,101 +90,64 @@ extern "C" {
 //!
 #define DRV8323_FAULT_TYPE_MASK         (0x07FF)
 
+#define DRV8323_STATUS1_VDS_LC          (1 << 0)
+#define DRV8323_STATUS1_VDS_HC          (1 << 1)
+#define DRV8323_STATUS1_VDS_LB          (1 << 2)
+#define DRV8323_STATUS1_VDS_HB          (1 << 3)
+#define DRV8323_STATUS1_VDS_LA          (1 << 4)
+#define DRV8323_STATUS1_VDS_HA          (1 << 5)
+#define DRV8323_STATUS1_OTSD            (1 << 6)
+#define DRV8323_STATUS1_UVLO            (1 << 7)
+#define DRV8323_STATUS1_GDF             (1 << 8)
+#define DRV8323_STATUS1_OVDS_OCP        (1 << 9)
+#define DRV8323_STATUS1_FAULT           (1 << 10)
 
-//! \brief Defines the location of the FETLC_OC (FET Low side, Phase C Over Current) bits in the Status 1 register
-//!
-#define DRV8323_STATUS1_FETLC_OC_BITS   (1 << 0)
+#define DRV8323_STATUS2_VGS_LC          (1 << 0)
+#define DRV8323_STATUS2_VGS_HC          (1 << 1)
+#define DRV8323_STATUS2_VGS_LB          (1 << 2)
+#define DRV8323_STATUS2_VGS_HB          (1 << 3)
+#define DRV8323_STATUS2_VGS_LA          (1 << 4)
+#define DRV8323_STATUS2_VGS_HA          (1 << 5)
+#define DRV8323_STATUS2_CPUV            (1 << 6)
+#define DRV8323_STATUS2_OTW             (1 << 7)
+#define DRV8323_STATUS2_SC_OC           (1 << 8)
+#define DRV8323_STATUS2_SB_OC           (1 << 9)
+#define DRV8323_STATUS2_SA_OC           (1 << 10)
 
-//! \brief Defines the location of the FETLC_OC (FET High side, Phase C Over Current) bits in the Status 1 register
-//!
-#define DRV8323_STATUS1_FETHC_OC_BITS   (1 << 1)
+#define DRV8323_DRVCTRL_CLR_FLT         (1 << 0)
+#define DRV8323_DRVCTRL_BRAKE           (1 << 1)
+#define DRV8323_DRVCTRL_COAST           (1 << 2)
+#define DRV8323_DRVCTRL_1PWM_DIR        (1 << 3)
+#define DRV8323_DRVCTRL_1PWM_COM        (1 << 4)
+#define DRV8323_DRVCTRL_PWM_MODE        (3 << 5)
+#define DRV8323_DRVCTRL_OTW_REP         (1 << 7)
+#define DRV8323_DRVCTRL_DIS_GDF         (1 << 8)
+#define DRV8323_DRVCTRL_DIS_CPUV        (1 << 9)
 
-//! \brief Defines the location of the FETLC_OC (FET Low side, Phase B Over Current) bits in the Status 1 register
-//!
-#define DRV8323_STATUS1_FETLB_OC_BITS   (1 << 2)
+#define DRV8323_GATEDRVHS_IDRIVEN_HS    (0xf << 0)
+#define DRV8323_GATEDRVHS_IDRIVEP_HS    (0xf << 4)
+#define DRV8323_GATEDRVHS_LOCK          (3 << 8)
 
-//! \brief Defines the location of the FETLC_OC (FET High side, Phase B Over Current) bits in the Status 1 register
-//!
-#define DRV8323_STATUS1_FETHB_OC_BITS   (1 << 3)
+#define DRV8323_GATEDRVLS_IDRIVEN_LS    (0xf << 0)
+#define DRV8323_GATEDRVLS_IDRIVEP_LS    (0xf << 4)
+#define DRV8323_GATEDRVLS_TDRIVE        (3 << 8)
+#define DRV8323_GATEDRVLS_CBC           (1 << 10)
 
-//! \brief Defines the location of the FETLC_OC (FET Low side, Phase A Over Current) bits in the Status 1 register
-//!
-#define DRV8323_STATUS1_FETLA_OC_BITS   (1 << 4)
+#define DRV8323_OCPCTRL_VDS_LVL         (0xf << 0)
+#define DRV8323_OCPCTRL_OCP_DEG         (3 << 4)
+#define DRV8323_OCPCTRL_OCP_MODE        (3 << 6)
+#define DRV8323_OCPCTRL_DEAD_TIME       (3 << 8)
+#define DRV8323_OCPCTRL_TRETRY          (1 << 10)
 
-//! \brief Defines the location of the FETLC_OC (FET High side, Phase A Over Current) bits in the Status 1 register
-//!
-#define DRV8323_STATUS1_FETHA_OC_BITS   (1 << 5)
-
-//! \brief Defines the location of the OTW (Over Temperature Warning) bits in the Status 1 register
-//!
-#define DRV8323_STATUS1_OTW_BITS        (1 << 6)
-
-//! \brief Defines the location of the OTSD (Over Temperature Shut Down) bits in the Status 1 register
-//!
-#define DRV8323_STATUS1_OTSD_BITS       (1 << 7)
-
-//! \brief Defines the location of the PVDD_UV (Power supply Vdd, Under Voltage) bits in the Status 1 register
-//!
-#define DRV8323_STATUS1_PVDD_UV_BITS    (1 << 8)
-
-//! \brief Defines the location of the GVDD_UV (DRV8323 Vdd, Under Voltage) bits in the Status 1 register
-//!
-#define DRV8323_STATUS1_GVDD_UV_BITS    (1 << 9)
-
-//! \brief Defines the location of the FAULT bits in the Status 1 register
-//!
-#define DRV8323_STATUS1_FAULT_BITS      (1 << 10)
-
-
-//! \brief Defines the location of the Device ID bits in the Status 2 register
-//!
-#define DRV8323_STATUS2_ID_BITS        (15 << 0)
-
-//! \brief Defines the location of the GVDD_OV (DRV8323 Vdd, Over Voltage) bits in the Status 2 register
-//!
-#define DRV8323_STATUS2_GVDD_OV_BITS    (1 << 7)
-
-
-//! \brief Defines the location of the GATE_CURRENT bits in the Control 1 register
-//!
-#define DRV8323_CTRL1_GATE_CURRENT_BITS  (3 << 0)
-
-//! \brief Defines the location of the GATE_RESET bits in the Control 1 register
-//!
-#define DRV8323_CTRL1_GATE_RESET_BITS    (1 << 2)
-
-//! \brief Defines the location of the PWM_MODE bits in the Control 1 register
-//!
-#define DRV8323_CTRL1_PWM_MODE_BITS      (1 << 3)
-
-//! \brief Defines the location of the OC_MODE bits in the Control 1 register
-//!
-#define DRV8323_CTRL1_OC_MODE_BITS       (3 << 4)
-
-//! \brief Defines the location of the OC_ADJ bits in the Control 1 register
-//!
-#define DRV8323_CTRL1_OC_ADJ_SET_BITS   (31 << 6)
-
-
-//! \brief Defines the location of the OCTW_SET bits in the Control 2 register
-//!
-#define DRV8323_CTRL2_OCTW_SET_BITS      (3 << 0)
-
-//! \brief Defines the location of the GAIN bits in the Control 2 register
-//!
-#define DRV8323_CTRL2_GAIN_BITS          (3 << 2)
-
-//! \brief Defines the location of the DC_CAL_1 bits in the Control 2 register
-//!
-#define DRV8323_CTRL2_DC_CAL_1_BITS      (1 << 4)
-
-//! \brief Defines the location of the DC_CAL_2 bits in the Control 2 register
-//!
-#define DRV8323_CTRL2_DC_CAL_2_BITS      (1 << 5)
-
-//! \brief Defines the location of the OC_TOFF bits in the Control 2 register
-//!
-#define DRV8323_CTRL2_OC_TOFF_BITS       (1 << 6)
+#define DRV8323_CSACTRL_SEN_LVL         (3 << 0)
+#define DRV8323_CSACTRL_CSA_CAL_C       (1 << 2)
+#define DRV8323_CSACTRL_CSA_CAL_B       (1 << 3)
+#define DRV8323_CSACTRL_CSA_CAL_A       (1 << 4)
+#define DRV8323_CSACTRL_DIS_SEN         (1 << 5)
+#define DRV8323_CSACTRL_CSA_GAIN        (3 << 6)
+#define DRV8323_CSACTRL_LS_REF          (1 << 8)
+#define DRV8323_CSACTRL_VREF_DIV        (1 << 9)
+#define DRV8323_CSACTRL_CSA_FET         (1 << 10)
 
 
 // **************************************************************************
@@ -203,10 +166,10 @@ typedef enum
 //!
 typedef enum 
 {
-  DRV8323_DcCalMode_Ch1_Load   = (0 << 4),   //!< Shunt amplifier 1 connected to load via input pins
-  DRV8323_DcCalMode_Ch1_NoLoad = (1 << 4),   //!< Shunt amplifier 1 disconnected from load and input pins are shorted
-  DRV8323_DcCalMode_Ch2_Load   = (0 << 5),   //!< Shunt amplifier 2 connected to load via input pins
-  DRV8323_DcCalMode_Ch2_NoLoad = (1 << 5)    //!< Shunt amplifier 2 disconnected from load and input pins are shorted
+  DRV8323_DcCalMode_ChB_Load   = (0 << 3),   //!< Shunt amplifier 1 connected to load via input pins
+  DRV8323_DcCalMode_ChB_NoLoad = (1 << 3),   //!< Shunt amplifier 1 disconnected from load and input pins are shorted
+  DRV8323_DcCalMode_ChC_Load   = (0 << 2),   //!< Shunt amplifier 2 connected to load via input pins
+  DRV8323_DcCalMode_ChC_NoLoad = (1 << 2)    //!< Shunt amplifier 2 disconnected from load and input pins are shorted
 } DRV8323_DcCalMode_e;
 
 
@@ -215,17 +178,16 @@ typedef enum
 typedef enum 
 {
   DRV8323_FaultType_NoFault  = (0 << 0),  //!< No fault
-  DRV8323_FaultType_FETLC_OC = (1 << 0),  //!< FET Low side, Phase C Over Current fault
-  DRV8323_FaultType_FETHC_OC = (1 << 1),  //!< FET High side, Phase C Over Current fault
-  DRV8323_FaultType_FETLB_OC = (1 << 2),  //!< FET Low side, Phase B Over Current fault
-  DRV8323_FaultType_FETHB_OC = (1 << 3),  //!< FET High side, Phase B Over Current fault
-  DRV8323_FaultType_FETLA_OC = (1 << 4),  //!< FET Low side, Phase A Over Current fault
-  DRV8323_FaultType_FETHA_OC = (1 << 5),  //!< FET High side, Phase A Over Current fault
-  DRV8323_FaultType_OTW      = (1 << 6),  //!< Over Temperature Warning fault
-  DRV8323_FaultType_OTSD     = (1 << 7),  //!< Over Temperature Shut Down fault
-  DRV8323_FaultType_PVDD_UV  = (1 << 8),  //!< Power supply Vdd Under Voltage fault
-  DRV8323_FaultType_GVDD_UV  = (1 << 9),  //!< DRV8323 Vdd Under Voltage fault
-  DRV8323_FaultType_GVDD_OV  = (1 << 10)  //!< DRV8323 Vdd Over Voltage fault
+  DRV8323_FaultType_VDS_LC_OC = (1 << 0),  //!< FET Low side, Phase C Over Current fault
+  DRV8323_FaultType_VDS_HC_OC = (1 << 1),  //!< FET High side, Phase C Over Current fault
+  DRV8323_FaultType_VDS_LB_OC = (1 << 2),  //!< FET Low side, Phase B Over Current fault
+  DRV8323_FaultType_VDS_HB_OC = (1 << 3),  //!< FET High side, Phase B Over Current fault
+  DRV8323_FaultType_VDS_LA_OC = (1 << 4),  //!< FET Low side, Phase A Over Current fault
+  DRV8323_FaultType_VDS_HA_OC = (1 << 5),  //!< FET High side, Phase A Over Current fault
+  DRV8323_FaultType_OTSD      = (1 << 6),  //!< Over Temperature shutdown fault
+  DRV8323_FaultType_UVLO      = (1 << 7),  //!< Undervoltage lockout fault
+  DRV8323_FaultType_GDF       = (1 << 8),  //!< Gate drive fault
+  DRV8323_FaultType_VCS_OCP   = (1 << 9),  //!< VDS overcurrent fault
 } DRV8323_FaultType_e;
 
 
@@ -233,10 +195,10 @@ typedef enum
 //!
 typedef enum 
 {
-  DRV8323_OcMode_CurrentLimit  = 0 << 4,   //!< current limit when OC detected
-  DRV8323_OcMode_LatchShutDown = 1 << 4,   //!< latch shut down when OC detected
-  DRV8323_OcMode_ReportOnly    = 2 << 4,   //!< report only when OC detected
-  DRV8323_OcMode_Disabled      = 3 << 4    //!< OC protection disabled
+  DRV8323_OcMode_Latch        = 0 << 6,   //!< current limit when OC detected
+  DRV8323_OcMode_Retry        = 1 << 6,   //!< latch shut down when OC detected
+  DRV8323_OcMode_ReportOnly   = 2 << 6,   //!< report only when OC detected
+  DRV8323_OcMode_Disabled     = 3 << 6    //!< OC protection disabled
 } DRV8323_OcMode_e;
 
 
@@ -244,9 +206,9 @@ typedef enum
 //!
 typedef enum 
 {
-  DRV8323_OcOffTimeMode_Normal  = 0 << 6,   //!< normal CBC operation
-  DRV8323_OcOffTimeMode_Ctrl    = 1 << 6    //!< off time control during OC
-} DRV8323_OcOffTimeMode_e;
+  DRV8323_OcRetryTime_4ms     = 0 << 10,   //!< normal CBC operation
+  DRV8323_OcRetryTime_50us    = 1 << 10    //!< off time control during OC
+} DRV8323_OcRetryTime_e;
 
 
 //! \brief Enumeration for the Over Current, Temperature Warning modes
@@ -273,8 +235,8 @@ typedef enum
 //!
 typedef enum 
 {
-  DRV8323_PwmMode_Six_Inputs   = 0 << 3,   //!< six independent inputs
-  DRV8323_PwmMode_Three_Inputs = 1 << 3    //!< three independent nputs
+  DRV8323_PwmMode_Six_Inputs   = 0 << 5,   //!< six independent inputs
+  DRV8323_PwmMode_Three_Inputs = 1 << 5    //!< three independent nputs
 } DRV8323_PwmMode_e;
 
 
@@ -282,10 +244,13 @@ typedef enum
 //!
 typedef enum 
 {
-  DRV8323_RegName_Status_1  = 0 << 11,   //!< Status Register 1
-  DRV8323_RegName_Status_2  = 1 << 11,   //!< Status Register 2
-  DRV8323_RegName_Control_1 = 2 << 11,  //!< Control Register 1
-  DRV8323_RegName_Control_2 = 3 << 11   //!< Control Register 2
+  DRV8323_RegName_Status_1      = 0 << 11,   //!< Status Register 1
+  DRV8323_RegName_Status_2      = 1 << 11,   //!< Status Register 2
+  DRV8323_RegName_Drive_control = 2 << 11,  //!< Control Register 1
+  DRV8323_RegName_Gatedrive_HS  = 3 << 11,   //!< Control Register 2
+  DRV8323_RegName_Gatedrive_LS  = 4 << 11,   //!< Control Register 2
+  DRV8323_RegName_OCP_Control   = 5 << 11,   //!< Control Register 2
+  DRV8323_RegName_CSA_Control   = 6 << 11   //!< Control Register 2
 } DRV8323_RegName_e;
 
 
@@ -303,10 +268,10 @@ typedef enum
 //!
 typedef enum 
 {
-  DRV8323_ShuntAmpGain_10VpV = 0 << 2,   //!< 10 V per V
-  DRV8323_ShuntAmpGain_20VpV = 1 << 2,   //!< 20 V per V
-  DRV8323_ShuntAmpGain_40VpV = 2 << 2,   //!< 40 V per V
-  DRV8323_ShuntAmpGain_80VpV = 3 << 2    //!< 80 V per V
+  DRV8323_ShuntAmpGain_5VpV   = 0 << 6,   //!< 10 V per V
+  DRV8323_ShuntAmpGain_10VpV  = 1 << 6,   //!< 20 V per V
+  DRV8323_ShuntAmpGain_20VpV  = 2 << 6,   //!< 40 V per V
+  DRV8323_ShuntAmpGain_40VpV  = 3 << 6    //!< 80 V per V
 } DRV8323_ShuntAmpGain_e;
 
 
@@ -324,37 +289,21 @@ typedef enum
 typedef enum 
 {
   DRV8323_VdsLevel_0p060_V =  0 << 6,      //!< Vds = 0.060 V
-  DRV8323_VdsLevel_0p068_V =  1 << 6,      //!< Vds = 0.068 V
-  DRV8323_VdsLevel_0p076_V =  2 << 6,      //!< Vds = 0.076 V
-  DRV8323_VdsLevel_0p086_V =  3 << 6,      //!< Vds = 0.086 V
-  DRV8323_VdsLevel_0p097_V =  4 << 6,      //!< Vds = 0.097 V
-  DRV8323_VdsLevel_0p109_V =  5 << 6,      //!< Vds = 0.109 V
-  DRV8323_VdsLevel_0p123_V =  6 << 6,      //!< Vds = 0.123 V
-  DRV8323_VdsLevel_0p138_V =  7 << 6,      //!< Vds = 0.138 V
-  DRV8323_VdsLevel_0p155_V =  8 << 6,      //!< Vds = 0.155 V
-  DRV8323_VdsLevel_0p175_V =  9 << 6,      //!< Vds = 0.175 V
-  DRV8323_VdsLevel_0p197_V = 10 << 6,      //!< Vds = 0.197 V
-  DRV8323_VdsLevel_0p222_V = 11 << 6,      //!< Vds = 0.222 V
-  DRV8323_VdsLevel_0p250_V = 12 << 6,      //!< Vds = 0.250 V
-  DRV8323_VdsLevel_0p282_V = 13 << 6,      //!< Vds = 0.282 V
-  DRV8323_VdsLevel_0p317_V = 14 << 6,      //!< Vds = 0.317 V
-  DRV8323_VdsLevel_0p358_V = 15 << 6,      //!< Vds = 0.358 V
-  DRV8323_VdsLevel_0p403_V = 16 << 6,      //!< Vds = 0.403 V
-  DRV8323_VdsLevel_0p454_V = 17 << 6,      //!< Vds = 0.454 V
-  DRV8323_VdsLevel_0p511_V = 18 << 6,      //!< Vds = 0.511 V
-  DRV8323_VdsLevel_0p576_V = 19 << 6,      //!< Vds = 0.576 V
-  DRV8323_VdsLevel_0p648_V = 20 << 6,      //!< Vds = 0.648 V
-  DRV8323_VdsLevel_0p730_V = 21 << 6,      //!< Vds = 0.730 V
-  DRV8323_VdsLevel_0p822_V = 22 << 6,      //!< Vds = 0.822 V
-  DRV8323_VdsLevel_0p926_V = 23 << 6,      //!< Vds = 0.926 V
-  DRV8323_VdsLevel_1p043_V = 24 << 6,      //!< Vds = 1.403 V
-  DRV8323_VdsLevel_1p175_V = 25 << 6,      //!< Vds = 1.175 V
-  DRV8323_VdsLevel_1p324_V = 26 << 6,      //!< Vds = 1.324 V
-  DRV8323_VdsLevel_1p491_V = 27 << 6,      //!< Vds = 1.491 V
-  DRV8323_VdsLevel_1p679_V = 28 << 6,      //!< Vds = 1.679 V
-  DRV8323_VdsLevel_1p892_V = 29 << 6,      //!< Vds = 1.892 V
-  DRV8323_VdsLevel_2p131_V = 30 << 6,      //!< Vds = 2.131 V
-  DRV8323_VdsLevel_2p400_V = 31 << 6       //!< Vds = 2.400 V
+  DRV8323_VdsLevel_0p130_V =  1 << 6,      //!< Vds = 0.068 V
+  DRV8323_VdsLevel_0p200_V =  2 << 6,      //!< Vds = 0.076 V
+  DRV8323_VdsLevel_0p260_V =  3 << 6,      //!< Vds = 0.086 V
+  DRV8323_VdsLevel_0p310_V =  4 << 6,      //!< Vds = 0.097 V
+  DRV8323_VdsLevel_0p450_V =  5 << 6,      //!< Vds = 0.109 V
+  DRV8323_VdsLevel_0p530_V =  6 << 6,      //!< Vds = 0.123 V
+  DRV8323_VdsLevel_0p600_V =  7 << 6,      //!< Vds = 0.138 V
+  DRV8323_VdsLevel_0p680_V =  8 << 6,      //!< Vds = 0.155 V
+  DRV8323_VdsLevel_0p750_V =  9 << 6,      //!< Vds = 0.175 V
+  DRV8323_VdsLevel_0p940_V = 10 << 6,      //!< Vds = 0.197 V
+  DRV8323_VdsLevel_1p130_V = 11 << 6,      //!< Vds = 0.222 V
+  DRV8323_VdsLevel_1p300_V = 12 << 6,      //!< Vds = 0.250 V
+  DRV8323_VdsLevel_1p500_V = 13 << 6,      //!< Vds = 0.282 V
+  DRV8323_VdsLevel_1p700_V = 14 << 6,      //!< Vds = 0.317 V
+  DRV8323_VdsLevel_1p880_V = 15 << 6,      //!< Vds = 0.358 V
 } DRV8323_VdsLevel_e;
 
 
@@ -367,27 +316,35 @@ typedef enum
 typedef struct _DRV_SPI_8323_Stat1_t_
 {
   bool                  FAULT;
-  bool                  GVDD_UV;
-  bool                  PVDD_UV;
+  bool                  OVDS_OCP;
+  bool                  GDF;
+  bool                  UVLO;
   bool                  OTSD;
-  bool                  OTW;
-  bool                  FETHA_OC;
-  bool                  FETLA_OC;
-  bool                  FETHB_OC;
-  bool                  FETLB_OC;
-  bool                  FETHC_OC;
-  bool                  FETLC_OC;
+  bool                  VDS_HA_OC;
+  bool                  VDS_LA_OC;
+  bool                  VDS_HB_OC;
+  bool                  VDS_LB_OC;
+  bool                  VDS_HC_OC;
+  bool                  VDS_LC_OC;
 }DRV_SPI_8323_Stat1_t_;
 
 
 typedef struct _DRV_SPI_8323_Stat2_t_
 {
-  bool                  GVDD_OV;
-  uint16_t              DeviceID;
+  bool                  SA_OC;
+  bool                  SB_OC;
+  bool                  SC_OC;
+  bool                  OTW;
+  bool                  CPUV;
+  bool                  VGS_HA;
+  bool                  VGS_LA;
+  bool                  VGS_HB;
+  bool                  VGS_LB;
+  bool                  VGS_HC;
+  bool                  VGS_LC;
 }DRV_SPI_8323_Stat2_t_;
 
-
-typedef struct _DRV_SPI_8323_CTRL1_t_
+typedef struct _DRV_SPI_8323_DRVCTRL_t_
 {
   DRV8323_PeakCurrent_e    DRV8323_CURRENT;
   DRV8323_Reset_e          DRV8323_RESET;
@@ -397,27 +354,19 @@ typedef struct _DRV_SPI_8323_CTRL1_t_
 }DRV_SPI_8323_CTRL1_t_;
 
 
-typedef struct _DRV_SPI_8323_CTRL2_t_
-{
-  DRV8323_OcTwMode_e       OCTW_SET;
-  DRV8323_ShuntAmpGain_e   GAIN;
-  DRV8323_DcCalMode_e      DC_CAL_CH1p2;
-  DRV8323_OcOffTimeMode_e  OC_TOFF;
-}DRV_SPI_8323_CTRL2_t_;
-
 
 typedef struct _DRV_SPI_8323_Vars_t_
 {
-  DRV_SPI_8323_Stat1_t_     Stat_Reg_1;
-  DRV_SPI_8323_Stat2_t_     Stat_Reg_2;
-  DRV_SPI_8323_CTRL1_t_     Ctrl_Reg_1;
-  DRV_SPI_8323_CTRL2_t_     Ctrl_Reg_2;
-  uint16_t                  Stat_Reg_1_Value;
-  uint16_t                  Stat_Reg_2_Value;
-  uint16_t                  Ctrl_Reg_1_Value;
-  uint16_t                  Ctrl_Reg_2_Value;
-  bool                  SndCmd;
-  bool                  RcvCmd;
+  // DRV_SPI_8323_Stat1_t_     Stat_Reg_1;
+  // DRV_SPI_8323_Stat2_t_     Stat_Reg_2;
+  // DRV_SPI_8323_CTRL1_t_     Ctrl_Reg_1;
+  // DRV_SPI_8323_CTRL2_t_     Ctrl_Reg_2;
+  // uint16_t                  Stat_Reg_1_Value;
+  // uint16_t                  Stat_Reg_2_Value;
+  // uint16_t                  Ctrl_Reg_1_Value;
+  // uint16_t                  Ctrl_Reg_2_Value;
+  // bool                  SndCmd;
+  // bool                  RcvCmd;
 
 }DRV_SPI_8323_Vars_t;
 
@@ -509,7 +458,7 @@ extern DRV8323_OcMode_e DRV8323_getOcMode(DRV8323_Handle handle);
 //! \brief     Gets the over current off time mode
 //! \param[in] handle     The DRV8323 handle
 //! \return    The over current off time mode
-extern DRV8323_OcOffTimeMode_e DRV8323_getOcOffTimeMode(DRV8323_Handle handle);
+//extern DRV8323_OcOffTimeMode_e DRV8323_getOcOffTimeMode(DRV8323_Handle handle);
 
 
 //! \brief     Gets the over current, temperature warning mode
@@ -639,7 +588,7 @@ extern void DRV8323_setOcMode(DRV8323_Handle handle,const DRV8323_OcMode_e mode)
 //! \brief     Sets the over current off time mode
 //! \param[in] handle   The DRV8323 handle
 //! \param[in] mode     The over current off time mode
-extern void DRV8323_setOcOffTimeMode(DRV8323_Handle handle,const DRV8323_OcOffTimeMode_e mode);
+//extern void DRV8323_setOcOffTimeMode(DRV8323_Handle handle,const DRV8323_OcOffTimeMode_e mode);
 
 
 //! \brief     Sets the over current, temperature warning mode
@@ -700,17 +649,17 @@ extern void DRV8323_writeSpi(DRV8323_Handle handle,const DRV8323_RegName_e regNa
 //!
 //! \param[in] handle  The DRV8323 handle
 //! \param[in] Spi_8323_Vars  The (DRV_SPI_8323_Vars_t) structure that contains all DRV8323 Status/Control register options
-extern void DRV8323_writeData(DRV8323_Handle handle, DRV_SPI_8323_Vars_t *Spi_8323_Vars);
+//extern void DRV8323_writeData(DRV8323_Handle handle, DRV_SPI_8323_Vars_t *Spi_8323_Vars);
 
 
 //! \param[in] handle  The DRV8323 handle
 //! \param[in] Spi_8323_Vars  The (DRV_SPI_8323_Vars_t) structure that contains all DRV8323 Status/Control register options
-extern void DRV8323_readData(DRV8323_Handle handle, DRV_SPI_8323_Vars_t *Spi_8323_Vars);
+//extern void DRV8323_readData(DRV8323_Handle handle, DRV_SPI_8323_Vars_t *Spi_8323_Vars);
 
 
 //! \brief     Initialize the interface to all 8323 SPI variables
 //! \param[in] handle  The DRV8323 handle
-extern void DRV8323_setupSpi(DRV8323_Handle handle, DRV_SPI_8323_Vars_t *Spi_8323_Vars);
+//extern void DRV8323_setupSpi(DRV8323_Handle handle, DRV_SPI_8323_Vars_t *Spi_8323_Vars);
 
 
 #ifdef __cplusplus

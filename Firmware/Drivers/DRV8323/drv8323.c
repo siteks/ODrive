@@ -69,7 +69,7 @@ void DRV8323_enable(DRV8323_Handle handle)
   osDelay(10);
 
   // Make sure the Fault bit is not set during startup
-  while((DRV8323_readSpi(handle,DRV8323_RegName_Status_1) & DRV8323_STATUS1_FAULT_BITS) != 0);
+  while((DRV8323_readSpi(handle, DRV8323_RegName_Status_1) & DRV8323_STATUS1_FAULT) != 0);
 
   // Wait for the DRV8323 registers to update
   osDelay(1);
@@ -77,175 +77,175 @@ void DRV8323_enable(DRV8323_Handle handle)
   return;
 }
 
-DRV8323_DcCalMode_e DRV8323_getDcCalMode(DRV8323_Handle handle,const DRV8323_ShuntAmpNumber_e ampNumber)
-{
-  uint16_t data;
+// DRV8323_DcCalMode_e DRV8323_getDcCalMode(DRV8323_Handle handle,const DRV8323_ShuntAmpNumber_e ampNumber)
+// {
+//   uint16_t data;
 
 
-  // read data
-  data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
+//   // read data
+//   data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
 
-  // clear the bits
-  if(ampNumber == DRV8323_ShuntAmpNumber_1)
-    {
-      data &= (~DRV8323_CTRL2_DC_CAL_1_BITS);
+//   // clear the bits
+//   if(ampNumber == DRV8323_ShuntAmpNumber_1)
+//     {
+//       data &= (~DRV8323_CTRL2_DC_CAL_1_BITS);
 
-    }
-  else if(ampNumber == DRV8323_ShuntAmpNumber_2)
-    {
-      data &= (~DRV8323_CTRL2_DC_CAL_2_BITS);
-    }
+//     }
+//   else if(ampNumber == DRV8323_ShuntAmpNumber_2)
+//     {
+//       data &= (~DRV8323_CTRL2_DC_CAL_2_BITS);
+//     }
 
-  return((DRV8323_DcCalMode_e)data);
-} // end of DRV8323_getDcCalMode() function
+//   return((DRV8323_DcCalMode_e)data);
+// } // end of DRV8323_getDcCalMode() function
 
 
 DRV8323_FaultType_e DRV8323_getFaultType(DRV8323_Handle handle)
 {
-  DRV8323_Word_t      readWord;
+  //DRV8323_Word_t      readWord;
   DRV8323_FaultType_e faultType = DRV8323_FaultType_NoFault;
 
 
   // read the data
-  readWord = DRV8323_readSpi(handle,DRV8323_RegName_Status_1);
+  //readWord = DRV8323_readSpi(handle,DRV8323_RegName_Status_1);
 
-  if(readWord & DRV8323_STATUS1_FAULT_BITS)
-    {
-      faultType = (DRV8323_FaultType_e)(readWord & DRV8323_FAULT_TYPE_MASK);
+  // if(readWord & DRV8323_STATUS1_FAULT_BITS)
+  //   {
+  //     faultType = (DRV8323_FaultType_e)(readWord & DRV8323_FAULT_TYPE_MASK);
 
-      if(faultType == DRV8323_FaultType_NoFault)
-        {
-          // read the data
-          readWord = DRV8323_readSpi(handle,DRV8323_RegName_Status_2);
+  //     if(faultType == DRV8323_FaultType_NoFault)
+  //       {
+  //         // read the data
+  //         readWord = DRV8323_readSpi(handle,DRV8323_RegName_Status_2);
 
-          if(readWord & DRV8323_STATUS2_GVDD_OV_BITS)
-            {
-              faultType = DRV8323_FaultType_GVDD_OV;
-            }
-        }
-    }
+  //         if(readWord & DRV8323_STATUS2_GVDD_OV_BITS)
+  //           {
+  //             faultType = DRV8323_FaultType_GVDD_OV;
+  //           }
+  //       }
+  //   }
 
   return(faultType);
 } // end of DRV8323_getFaultType() function
 
 
-uint16_t DRV8323_getId(DRV8323_Handle handle)
-{
-  uint16_t data;
+// uint16_t DRV8323_getId(DRV8323_Handle handle)
+// {
+//   uint16_t data;
 
 
-  // read data
-  data = DRV8323_readSpi(handle,DRV8323_RegName_Status_2);
+//   // read data
+//   data = DRV8323_readSpi(handle,DRV8323_RegName_Status_2);
 
-  // mask bits
-  data &= DRV8323_STATUS2_ID_BITS;
+//   // mask bits
+//   data &= DRV8323_STATUS2_ID_BITS;
 
-  return(data);
-} // end of DRV8323_getId() function
-
-
-DRV8323_VdsLevel_e DRV8323_getOcLevel(DRV8323_Handle handle)
-{
-  uint16_t data;
-
-  // read data
-  data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
-
-  // clear the bits
-  data &= (~DRV8323_CTRL1_OC_ADJ_SET_BITS);
-
-  return((DRV8323_VdsLevel_e)data);
-} // end of DRV8323_getOcLevel() function
+//   return(data);
+// } // end of DRV8323_getId() function
 
 
-DRV8323_OcMode_e DRV8323_getOcMode(DRV8323_Handle handle)
-{
-  uint16_t data;
+// DRV8323_VdsLevel_e DRV8323_getOcLevel(DRV8323_Handle handle)
+// {
+//   uint16_t data;
+
+//   // read data
+//   data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
+
+//   // clear the bits
+//   data &= (~DRV8323_CTRL1_OC_ADJ_SET_BITS);
+
+//   return((DRV8323_VdsLevel_e)data);
+// } // end of DRV8323_getOcLevel() function
 
 
-  // read data
-  data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
-
-  // clear the bits
-  data &= (~DRV8323_CTRL1_OC_MODE_BITS);
-
-  return((DRV8323_OcMode_e)data);
-} // end of DRV8323_getOcMode() function
+// DRV8323_OcMode_e DRV8323_getOcMode(DRV8323_Handle handle)
+// {
+//   uint16_t data;
 
 
-DRV8323_OcOffTimeMode_e DRV8323_getOcOffTimeMode(DRV8323_Handle handle)
-{
-  uint16_t data;
+//   // read data
+//   data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
+
+//   // clear the bits
+//   data &= (~DRV8323_CTRL1_OC_MODE_BITS);
+
+//   return((DRV8323_OcMode_e)data);
+// } // end of DRV8323_getOcMode() function
 
 
-  // read data
-  data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
-
-  // clear the bits
-  data &= (~DRV8323_CTRL2_OC_TOFF_BITS);
-
-  return((DRV8323_OcOffTimeMode_e)data);
-} // end of DRV8323_getOcOffTimeMode() function
+// DRV8323_OcOffTimeMode_e DRV8323_getOcOffTimeMode(DRV8323_Handle handle)
+// {
+//   uint16_t data;
 
 
-DRV8323_OcTwMode_e DRV8323_getOcTwMode(DRV8323_Handle handle)
-{
-  uint16_t data;
+//   // read data
+//   data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
+
+//   // clear the bits
+//   data &= (~DRV8323_CTRL2_OC_TOFF_BITS);
+
+//   return((DRV8323_OcOffTimeMode_e)data);
+// } // end of DRV8323_getOcOffTimeMode() function
 
 
-  // read data
-  data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
-
-  // clear the bits
-  data &= (~DRV8323_CTRL2_OCTW_SET_BITS);
-
-  return((DRV8323_OcTwMode_e)data);
-} // end of DRV8323_getOcTwMode() function
+// DRV8323_OcTwMode_e DRV8323_getOcTwMode(DRV8323_Handle handle)
+// {
+//   uint16_t data;
 
 
-DRV8323_PeakCurrent_e DRV8323_getPeakCurrent(DRV8323_Handle handle)
-{
-  uint16_t data;
+//   // read data
+//   data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
+
+//   // clear the bits
+//   data &= (~DRV8323_CTRL2_OCTW_SET_BITS);
+
+//   return((DRV8323_OcTwMode_e)data);
+// } // end of DRV8323_getOcTwMode() function
 
 
-  // read data
-  data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
-
-  // clear the bits
-  data &= (~DRV8323_CTRL1_GATE_CURRENT_BITS);
-
-  return((DRV8323_PeakCurrent_e)data);
-} // end of DRV8323_getPeakCurrent() function
+// DRV8323_PeakCurrent_e DRV8323_getPeakCurrent(DRV8323_Handle handle)
+// {
+//   uint16_t data;
 
 
-DRV8323_PwmMode_e DRV8323_getPwmMode(DRV8323_Handle handle)
-{
-  uint16_t data;
+//   // read data
+//   data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
+
+//   // clear the bits
+//   data &= (~DRV8323_CTRL1_GATE_CURRENT_BITS);
+
+//   return((DRV8323_PeakCurrent_e)data);
+// } // end of DRV8323_getPeakCurrent() function
 
 
-  // read data
-  data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
-
-  // clear the bits
-  data &= (~DRV8323_CTRL1_PWM_MODE_BITS);
-
-  return((DRV8323_PwmMode_e)data);
-} // end of DRV8323_getPwmMode() function
+// DRV8323_PwmMode_e DRV8323_getPwmMode(DRV8323_Handle handle)
+// {
+//   uint16_t data;
 
 
-DRV8323_ShuntAmpGain_e DRV8323_getShuntAmpGain(DRV8323_Handle handle)
-{
-  uint16_t data;
+//   // read data
+//   data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
+
+//   // clear the bits
+//   data &= (~DRV8323_CTRL1_PWM_MODE_BITS);
+
+//   return((DRV8323_PwmMode_e)data);
+// } // end of DRV8323_getPwmMode() function
 
 
-  // read data
-  data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
+// DRV8323_ShuntAmpGain_e DRV8323_getShuntAmpGain(DRV8323_Handle handle)
+// {
+//   uint16_t data;
 
-  // clear the bits
-  data &= (~DRV8323_CTRL2_GAIN_BITS);
 
-  return((DRV8323_ShuntAmpGain_e)data);
-} // end of DRV8323_getShuntAmpGain() function
+//   // read data
+//   data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
+
+//   // clear the bits
+//   data &= (~DRV8323_CTRL2_GAIN_BITS);
+
+//   return((DRV8323_ShuntAmpGain_e)data);
+// } // end of DRV8323_getShuntAmpGain() function
 
 
 DRV8323_Handle DRV8323_init(void *pMemory,const size_t numBytes)
@@ -323,40 +323,40 @@ void DRV8323_setSpiHandle(DRV8323_Handle handle,SPI_Handle spiHandle)
 } // end of DRV8323_setSpiHandle() function
 
 
-bool DRV8323_isFault(DRV8323_Handle handle)
-{
-  DRV8323_Word_t readWord;
-  bool status=false;
+// bool DRV8323_isFault(DRV8323_Handle handle)
+// {
+//   DRV8323_Word_t readWord;
+//   bool status=false;
 
 
-  // read the data
-  readWord = DRV8323_readSpi(handle,DRV8323_RegName_Status_1);
+//   // read the data
+//   readWord = DRV8323_readSpi(handle,DRV8323_RegName_Status_1);
 
-  if(readWord & DRV8323_STATUS1_FAULT_BITS)
-    {
-      status = true;
-    }
+//   if(readWord & DRV8323_STATUS1_FAULT_BITS)
+//     {
+//       status = true;
+//     }
 
-  return(status);
-} // end of DRV8323_isFault() function
-
-
-bool DRV8323_isReset(DRV8323_Handle handle)
-{
-  DRV8323_Word_t readWord;
-  bool status=false;
+//   return(status);
+// } // end of DRV8323_isFault() function
 
 
-  // read the data
-  readWord = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
+// bool DRV8323_isReset(DRV8323_Handle handle)
+// {
+//   DRV8323_Word_t readWord;
+//   bool status=false;
 
-  if(readWord & DRV8323_CTRL1_GATE_RESET_BITS)
-    {
-      status = true;
-    }
 
-  return(status);
-} // end of DRV8323_isReset() function
+//   // read the data
+//   readWord = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
+
+//   if(readWord & DRV8323_CTRL1_GATE_RESET_BITS)
+//     {
+//       status = true;
+//     }
+
+//   return(status);
+// } // end of DRV8323_isReset() function
 
 
 uint16_t DRV8323_readSpi(DRV8323_Handle handle, const DRV8323_RegName_e regName)
@@ -396,176 +396,176 @@ uint16_t DRV8323_readSpi(DRV8323_Handle handle, const DRV8323_RegName_e regName)
 }  // end of DRV8323_readSpi() function
 
 
-void DRV8323_reset(DRV8323_Handle handle)
-{
-  uint16_t data;
+// void DRV8323_reset(DRV8323_Handle handle)
+// {
+//   uint16_t data;
 
 
-  // read data
-  data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
+//   // read data
+//   data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
 
-  // set the bits
-  data |= DRV8323_CTRL1_GATE_RESET_BITS;
+//   // set the bits
+//   data |= DRV8323_CTRL1_GATE_RESET_BITS;
 
-  // write the data
-  DRV8323_writeSpi(handle,DRV8323_RegName_Control_1,data);
+//   // write the data
+//   DRV8323_writeSpi(handle,DRV8323_RegName_Control_1,data);
 
-  return;
-}  // end of DRV8323_reset() function
+//   return;
+// }  // end of DRV8323_reset() function
 
   
-void DRV8323_setDcCalMode(DRV8323_Handle handle,const DRV8323_ShuntAmpNumber_e ampNumber,const DRV8323_DcCalMode_e mode)
-{
-  uint16_t data;
+// void DRV8323_setDcCalMode(DRV8323_Handle handle,const DRV8323_ShuntAmpNumber_e ampNumber,const DRV8323_DcCalMode_e mode)
+// {
+//   uint16_t data;
 
 
-  // read data
-  data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
+//   // read data
+//   data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
 
-  // clear the bits
-  if(ampNumber == DRV8323_ShuntAmpNumber_1)
-    {
-      data &= (~DRV8323_CTRL2_DC_CAL_1_BITS);
+//   // clear the bits
+//   if(ampNumber == DRV8323_ShuntAmpNumber_1)
+//     {
+//       data &= (~DRV8323_CTRL2_DC_CAL_1_BITS);
 
-    }
-  else if(ampNumber == DRV8323_ShuntAmpNumber_2)
-    {
-      data &= (~DRV8323_CTRL2_DC_CAL_2_BITS);
-    }
+//     }
+//   else if(ampNumber == DRV8323_ShuntAmpNumber_2)
+//     {
+//       data &= (~DRV8323_CTRL2_DC_CAL_2_BITS);
+//     }
 
-  // set the bits
-  data |= mode;
+//   // set the bits
+//   data |= mode;
 
-  // write the data
-  DRV8323_writeSpi(handle,DRV8323_RegName_Control_2,data);
+//   // write the data
+//   DRV8323_writeSpi(handle,DRV8323_RegName_Control_2,data);
 
-  return;
-} // end of DRV8323_setDcCalMode() function
+//   return;
+// } // end of DRV8323_setDcCalMode() function
 
 
 void DRV8323_setOcLevel(DRV8323_Handle handle,const DRV8323_VdsLevel_e VdsLevel)
 {
-  uint16_t data;
+  // uint16_t data;
 
 
-  // read data
-  data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
+  // // read data
+  // data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
 
-  // clear the bits
-  data &= (~DRV8323_CTRL1_OC_ADJ_SET_BITS);
+  // // clear the bits
+  // data &= (~DRV8323_CTRL1_OC_ADJ_SET_BITS);
 
-  // set the bits
-  data |= VdsLevel;
+  // // set the bits
+  // data |= VdsLevel;
 
-  // write the data
-  DRV8323_writeSpi(handle,DRV8323_RegName_Control_1,data);
+  // // write the data
+  // DRV8323_writeSpi(handle,DRV8323_RegName_Control_1,data);
 
-  return;
+  // return;
 } // end of DRV8323_setOcLevel() function
 
 
 void DRV8323_setOcMode(DRV8323_Handle handle,const DRV8323_OcMode_e mode)
 {
-  uint16_t data;
+  // uint16_t data;
 
 
-  // read data
-  data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
+  // // read data
+  // data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
 
-  // clear the bits
-  data &= (~DRV8323_CTRL1_OC_MODE_BITS);
+  // // clear the bits
+  // data &= (~DRV8323_CTRL1_OC_MODE_BITS);
 
-  // set the bits
-  data |= mode;
+  // // set the bits
+  // data |= mode;
 
-  // write the data
-  DRV8323_writeSpi(handle,DRV8323_RegName_Control_1,data);
+  // // write the data
+  // DRV8323_writeSpi(handle,DRV8323_RegName_Control_1,data);
 
-  return;
+  // return;
 } // end of DRV8323_setOcMode() function
 
 
-void DRV8323_setOcOffTimeMode(DRV8323_Handle handle,const DRV8323_OcOffTimeMode_e mode)
-{
-  uint16_t data;
+// void DRV8323_setOcOffTimeMode(DRV8323_Handle handle,const DRV8323_OcOffTimeMode_e mode)
+// {
+//   // uint16_t data;
 
 
-  // read data
-  data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
+//   // // read data
+//   // data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
 
-  // clear the bits
-  data &= (~DRV8323_CTRL2_OC_TOFF_BITS);
+//   // // clear the bits
+//   // data &= (~DRV8323_CTRL2_OC_TOFF_BITS);
 
-  // set the bits
-  data |= mode;
+//   // // set the bits
+//   // data |= mode;
 
-  // write the data
-  DRV8323_writeSpi(handle,DRV8323_RegName_Control_2,data);
+//   // // write the data
+//   // DRV8323_writeSpi(handle,DRV8323_RegName_Control_2,data);
 
-  return;
-} // end of DRV8323_setOcOffTimeMode() function
+//   // return;
+// } // end of DRV8323_setOcOffTimeMode() function
 
 
 void DRV8323_setOcTwMode(DRV8323_Handle handle,const DRV8323_OcTwMode_e mode)
 {
-  uint16_t data;
+  // uint16_t data;
 
 
-  // read data
-  data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
+  // // read data
+  // data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
 
-  // clear the bits
-  data &= (~DRV8323_CTRL2_OCTW_SET_BITS);
+  // // clear the bits
+  // data &= (~DRV8323_CTRL2_OCTW_SET_BITS);
 
-  // set the bits
-  data |= mode;
+  // // set the bits
+  // data |= mode;
 
-  // write the data
-  DRV8323_writeSpi(handle,DRV8323_RegName_Control_2,data);
+  // // write the data
+  // DRV8323_writeSpi(handle,DRV8323_RegName_Control_2,data);
 
-  return;
+  // return;
 } // end of DRV8323_setOcTwMode() function
 
 
 void DRV8323_setPeakCurrent(DRV8323_Handle handle,const DRV8323_PeakCurrent_e peakCurrent)
 {
-  uint16_t data;
+  // uint16_t data;
 
 
-  // read data
-  data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
+  // // read data
+  // data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
 
-  // clear the bits
-  data &= (~DRV8323_CTRL1_GATE_CURRENT_BITS);
+  // // clear the bits
+  // data &= (~DRV8323_CTRL1_GATE_CURRENT_BITS);
 
-  // set the bits
-  data |= peakCurrent;
+  // // set the bits
+  // data |= peakCurrent;
 
-  // write the data
-  DRV8323_writeSpi(handle,DRV8323_RegName_Control_1,data);
+  // // write the data
+  // DRV8323_writeSpi(handle,DRV8323_RegName_Control_1,data);
 
-  return;
+  // return;
 } // end of DRV8323_setPeakCurrent() function
 
 
 void DRV8323_setPwmMode(DRV8323_Handle handle,const DRV8323_PwmMode_e mode)
 {
-  uint16_t data;
+  // uint16_t data;
 
 
-  // read data
-  data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
+  // // read data
+  // data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
 
-  // clear the bits
-  data &= (~DRV8323_CTRL1_PWM_MODE_BITS);
+  // // clear the bits
+  // data &= (~DRV8323_CTRL1_PWM_MODE_BITS);
 
-  // set the bits
-  data |= mode;
+  // // set the bits
+  // data |= mode;
 
-  // write the data
-  DRV8323_writeSpi(handle,DRV8323_RegName_Control_1,data);
+  // // write the data
+  // DRV8323_writeSpi(handle,DRV8323_RegName_Control_1,data);
 
-  return;
+  // return;
 } // end of DRV8323_setPwmMode() function
 
 
@@ -575,16 +575,16 @@ void DRV8323_setShuntAmpGain(DRV8323_Handle handle,const DRV8323_ShuntAmpGain_e 
 
 
   // read data
-  data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
+  data = DRV8323_readSpi(handle,DRV8323_RegName_CSA_Control);
 
   // clear the bits
-  data &= (~DRV8323_CTRL2_GAIN_BITS);
+  data &= (~DRV8323_CSACTRL_CSA_GAIN);
 
   // set the bits
   data |= gain;
 
   // write the data
-  DRV8323_writeSpi(handle,DRV8323_RegName_Control_2,data);
+  DRV8323_writeSpi(handle, DRV8323_RegName_CSA_Control, data);
 
   return;
 } // end of DRV8323_setShuntAmpGain() function
@@ -609,172 +609,7 @@ void DRV8323_writeSpi(DRV8323_Handle handle, const DRV8323_RegName_e regName,con
 }  // end of DRV8323_writeSpi() function
 
 
-void DRV8323_writeData(DRV8323_Handle handle, DRV_SPI_8323_Vars_t *Spi_8323_Vars)
-{
-  DRV8323_RegName_e  drvRegName;
-  uint16_t drvDataNew;
 
-
-  if(Spi_8323_Vars->SndCmd)
-  {
-    // Update Control Register 1
-    drvRegName = DRV8323_RegName_Control_1;
-    drvDataNew = Spi_8323_Vars->Ctrl_Reg_1.DRV8323_CURRENT |  \
-                 Spi_8323_Vars->Ctrl_Reg_1.DRV8323_RESET   |  \
-                 Spi_8323_Vars->Ctrl_Reg_1.PWM_MODE     |  \
-                 Spi_8323_Vars->Ctrl_Reg_1.OC_MODE      |  \
-                 Spi_8323_Vars->Ctrl_Reg_1.OC_ADJ_SET;
-    DRV8323_writeSpi(handle,drvRegName,drvDataNew);
-
-    // Update Control Register 2
-    drvRegName = DRV8323_RegName_Control_2;
-    drvDataNew = Spi_8323_Vars->Ctrl_Reg_2.OCTW_SET      |  \
-                 Spi_8323_Vars->Ctrl_Reg_2.GAIN          |  \
-                 Spi_8323_Vars->Ctrl_Reg_2.DC_CAL_CH1p2  |  \
-                 Spi_8323_Vars->Ctrl_Reg_2.OC_TOFF;
-    DRV8323_writeSpi(handle,drvRegName,drvDataNew);
-
-    Spi_8323_Vars->SndCmd = false;
-  }
-
-  return;
-}  // end of DRV8323_writeData() function
-
-
-void DRV8323_readData(DRV8323_Handle handle, DRV_SPI_8323_Vars_t *Spi_8323_Vars)
-{
-  DRV8323_RegName_e  drvRegName;
-  uint16_t drvDataNew;
-
-
-  if(Spi_8323_Vars->RcvCmd)
-  {
-    // Update Status Register 1
-    drvRegName = DRV8323_RegName_Status_1;
-    drvDataNew = DRV8323_readSpi(handle,drvRegName);
-    Spi_8323_Vars->Stat_Reg_1.FAULT = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_FAULT_BITS);
-    Spi_8323_Vars->Stat_Reg_1.GVDD_UV = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_GVDD_UV_BITS);
-    Spi_8323_Vars->Stat_Reg_1.PVDD_UV = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_PVDD_UV_BITS);
-    Spi_8323_Vars->Stat_Reg_1.OTSD = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_OTSD_BITS);
-    Spi_8323_Vars->Stat_Reg_1.OTW = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_OTW_BITS);
-    Spi_8323_Vars->Stat_Reg_1.FETHA_OC = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_FETHA_OC_BITS);
-    Spi_8323_Vars->Stat_Reg_1.FETLA_OC = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_FETLA_OC_BITS);
-    Spi_8323_Vars->Stat_Reg_1.FETHB_OC = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_FETHB_OC_BITS);
-    Spi_8323_Vars->Stat_Reg_1.FETLB_OC = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_FETLB_OC_BITS);
-    Spi_8323_Vars->Stat_Reg_1.FETHC_OC = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_FETHC_OC_BITS);
-    Spi_8323_Vars->Stat_Reg_1.FETLC_OC = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_FETLC_OC_BITS);
-    Spi_8323_Vars->Stat_Reg_1_Value = drvDataNew;
-
-    // Update Status Register 2
-    drvRegName = DRV8323_RegName_Status_2;
-    drvDataNew = DRV8323_readSpi(handle,drvRegName);
-    Spi_8323_Vars->Stat_Reg_2.GVDD_OV = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS2_GVDD_OV_BITS);
-    Spi_8323_Vars->Stat_Reg_2.DeviceID = (uint16_t)(drvDataNew & (uint16_t)DRV8323_STATUS2_ID_BITS);
-    Spi_8323_Vars->Stat_Reg_2_Value = drvDataNew;
-
-    // Update Control Register 1
-    drvRegName = DRV8323_RegName_Control_1;
-    drvDataNew = DRV8323_readSpi(handle,drvRegName);
-    Spi_8323_Vars->Ctrl_Reg_1.DRV8323_CURRENT = (DRV8323_PeakCurrent_e)(drvDataNew & (uint16_t)DRV8323_CTRL1_GATE_CURRENT_BITS);
-    Spi_8323_Vars->Ctrl_Reg_1.DRV8323_RESET = (DRV8323_Reset_e)(drvDataNew & (uint16_t)DRV8323_CTRL1_GATE_RESET_BITS);
-    Spi_8323_Vars->Ctrl_Reg_1.PWM_MODE = (DRV8323_PwmMode_e)(drvDataNew & (uint16_t)DRV8323_CTRL1_PWM_MODE_BITS);
-    Spi_8323_Vars->Ctrl_Reg_1.OC_MODE = (DRV8323_OcMode_e)(drvDataNew & (uint16_t)DRV8323_CTRL1_OC_MODE_BITS);
-    Spi_8323_Vars->Ctrl_Reg_1.OC_ADJ_SET = (DRV8323_VdsLevel_e)(drvDataNew & (uint16_t)DRV8323_CTRL1_OC_ADJ_SET_BITS);
-    Spi_8323_Vars->Ctrl_Reg_1_Value = drvDataNew;
-
-    // Update Control Register 2
-    drvRegName = DRV8323_RegName_Control_2;
-    drvDataNew = DRV8323_readSpi(handle,drvRegName);
-    Spi_8323_Vars->Ctrl_Reg_2.OCTW_SET = (DRV8323_OcTwMode_e)(drvDataNew & (uint16_t)DRV8323_CTRL2_OCTW_SET_BITS);
-    Spi_8323_Vars->Ctrl_Reg_2.GAIN = (DRV8323_ShuntAmpGain_e)(drvDataNew & (uint16_t)DRV8323_CTRL2_GAIN_BITS);
-    Spi_8323_Vars->Ctrl_Reg_2.DC_CAL_CH1p2 = (DRV8323_DcCalMode_e)(drvDataNew & (uint16_t)(DRV8323_CTRL2_DC_CAL_1_BITS | DRV8323_CTRL2_DC_CAL_2_BITS));
-    Spi_8323_Vars->Ctrl_Reg_2.OC_TOFF = (DRV8323_OcOffTimeMode_e)(drvDataNew & (uint16_t)DRV8323_CTRL2_OC_TOFF_BITS);
-    Spi_8323_Vars->Ctrl_Reg_2_Value = drvDataNew;
-    Spi_8323_Vars->RcvCmd = false;
-  }
-
-  return;
-}  // end of DRV8323_readData() function
-
-
-void DRV8323_setupSpi(DRV8323_Handle handle, DRV_SPI_8323_Vars_t *Spi_8323_Vars)
-{
-  DRV8323_RegName_e  drvRegName;
-  uint16_t drvDataNew;
-
-//  Why impose hardcoded values?
-//  Defaults should be device defaults or application level specified.
-//  Setting other hardcoded here is just confusing!
-
-#if 0
-  // Update Control Register 1
-  drvRegName = DRV8323_RegName_Control_1;
-  drvDataNew = (DRV8323_PeakCurrent_0p25_A   | \
-                DRV8323_Reset_Normal         | \
-                DRV8323_PwmMode_Six_Inputs   | \
-                DRV8323_OcMode_CurrentLimit  | \
-                DRV8323_VdsLevel_0p730_V);
-  DRV8323_writeSpi(handle,drvRegName,drvDataNew);
-
-  // Update Control Register 2
-  drvRegName = DRV8323_RegName_Control_2;
-  drvDataNew = (DRV8323_OcTwMode_Both        | \
-                DRV8323_ShuntAmpGain_10VpV   | \
-                DRV8323_DcCalMode_Ch1_Load   | \
-                DRV8323_DcCalMode_Ch2_Load   | \
-                DRV8323_OcOffTimeMode_Normal);
-  DRV8323_writeSpi(handle,drvRegName,drvDataNew);
-#endif
-
-
-  Spi_8323_Vars->SndCmd = false;
-  Spi_8323_Vars->RcvCmd = false;
-
-
-  // Wait for the DRV8323 registers to update
-  osDelay(1);
-
-
-  // Update Status Register 1
-  drvRegName = DRV8323_RegName_Status_1;
-  drvDataNew = DRV8323_readSpi(handle,drvRegName);
-  Spi_8323_Vars->Stat_Reg_1.FAULT = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_FAULT_BITS);
-  Spi_8323_Vars->Stat_Reg_1.GVDD_UV = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_GVDD_UV_BITS);
-  Spi_8323_Vars->Stat_Reg_1.PVDD_UV = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_PVDD_UV_BITS);
-  Spi_8323_Vars->Stat_Reg_1.OTSD = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_OTSD_BITS);
-  Spi_8323_Vars->Stat_Reg_1.OTW = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_OTW_BITS);
-  Spi_8323_Vars->Stat_Reg_1.FETHA_OC = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_FETHA_OC_BITS);
-  Spi_8323_Vars->Stat_Reg_1.FETLA_OC = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_FETLA_OC_BITS);
-  Spi_8323_Vars->Stat_Reg_1.FETHB_OC = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_FETHB_OC_BITS);
-  Spi_8323_Vars->Stat_Reg_1.FETLB_OC = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_FETLB_OC_BITS);
-  Spi_8323_Vars->Stat_Reg_1.FETHC_OC = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_FETHC_OC_BITS);
-  Spi_8323_Vars->Stat_Reg_1.FETLC_OC = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS1_FETLC_OC_BITS);
-
-  // Update Status Register 2
-  drvRegName = DRV8323_RegName_Status_2;
-  drvDataNew = DRV8323_readSpi(handle,drvRegName);
-  Spi_8323_Vars->Stat_Reg_2.GVDD_OV = (bool)(drvDataNew & (uint16_t)DRV8323_STATUS2_GVDD_OV_BITS);
-  Spi_8323_Vars->Stat_Reg_2.DeviceID = (uint16_t)(drvDataNew & (uint16_t)DRV8323_STATUS2_ID_BITS);
-
-  // Update Control Register 1
-  drvRegName = DRV8323_RegName_Control_1;
-  drvDataNew = DRV8323_readSpi(handle,drvRegName);
-  Spi_8323_Vars->Ctrl_Reg_1.DRV8323_CURRENT = (DRV8323_PeakCurrent_e)(drvDataNew & (uint16_t)DRV8323_CTRL1_GATE_CURRENT_BITS);
-  Spi_8323_Vars->Ctrl_Reg_1.DRV8323_RESET = (DRV8323_Reset_e)(drvDataNew & (uint16_t)DRV8323_CTRL1_GATE_RESET_BITS);
-  Spi_8323_Vars->Ctrl_Reg_1.PWM_MODE = (DRV8323_PwmMode_e)(drvDataNew & (uint16_t)DRV8323_CTRL1_PWM_MODE_BITS);
-  Spi_8323_Vars->Ctrl_Reg_1.OC_MODE = (DRV8323_OcMode_e)(drvDataNew & (uint16_t)DRV8323_CTRL1_OC_MODE_BITS);
-  Spi_8323_Vars->Ctrl_Reg_1.OC_ADJ_SET = (DRV8323_VdsLevel_e)(drvDataNew & (uint16_t)DRV8323_CTRL1_OC_ADJ_SET_BITS);
-
-  // Update Control Register 2
-  drvRegName = DRV8323_RegName_Control_2;
-  drvDataNew = DRV8323_readSpi(handle,drvRegName);
-  Spi_8323_Vars->Ctrl_Reg_2.OCTW_SET = (DRV8323_OcTwMode_e)(drvDataNew & (uint16_t)DRV8323_CTRL2_OCTW_SET_BITS);
-  Spi_8323_Vars->Ctrl_Reg_2.GAIN = (DRV8323_ShuntAmpGain_e)(drvDataNew & (uint16_t)DRV8323_CTRL2_GAIN_BITS);
-  Spi_8323_Vars->Ctrl_Reg_2.DC_CAL_CH1p2 = (DRV8323_DcCalMode_e)(drvDataNew & (uint16_t)(DRV8323_CTRL2_DC_CAL_1_BITS | DRV8323_CTRL2_DC_CAL_2_BITS));
-  Spi_8323_Vars->Ctrl_Reg_2.OC_TOFF = (DRV8323_OcOffTimeMode_e)(drvDataNew & (uint16_t)DRV8323_CTRL2_OC_TOFF_BITS);
-
-  return;
-}
 
 
 // end of file

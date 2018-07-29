@@ -44,7 +44,13 @@
 			"algorithm": "cpp",
 			"chrono": "cpp",
 			"condition_variable": "cpp",
-			"future": "cpp"
+			"future": "cpp",
+			"__bit_reference": "cpp",
+			"__functional_base": "cpp",
+			"atomic": "cpp",
+			"bitset": "cpp",
+			"iterator": "cpp",
+			"ratio": "cpp"
 		}
 	}
 }

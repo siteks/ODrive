@@ -85,11 +85,23 @@ bool Controller::update(float pos_estimate, float vel_estimate, float* current_s
     
     // Position control
     // TODO Decide if we want to use encoder or pll position here
+    float Iq = current_setpoint_;
     float vel_des = vel_setpoint_;
+#if 0
+    if (config_.control_mode == CTRL_MODE_POSITION_CONTROL) {
+        float pos_err = pos_setpoint_ - pos_estimate;
+        Iq += config_.pos_gain * pos_err;
+    }
+    if (config_.control_mode > CTRL_MODE_POSITION_CONTROL) {
+        float pos_err = pos_setpoint_ - pos_estimate;
+        vel_des += config_.pos_gain * pos_err;
+    }
+#else
     if (config_.control_mode >= CTRL_MODE_POSITION_CONTROL) {
         float pos_err = pos_setpoint_ - pos_estimate;
         vel_des += config_.pos_gain * pos_err;
     }
+#endif
 
     // Velocity limiting
     float vel_lim = config_.vel_limit;
@@ -97,7 +109,6 @@ bool Controller::update(float pos_estimate, float vel_estimate, float* current_s
     if (vel_des < -vel_lim) vel_des = -vel_lim;
 
     // Velocity control
-    float Iq = current_setpoint_;
 
     // Anti-cogging is enabled after calibration
     // We get the current position and apply a current feed-forward

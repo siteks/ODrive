@@ -17,10 +17,125 @@ static void enc_index_cb_wrapper(void* ctx) {
     reinterpret_cast<Encoder*>(ctx)->enc_index_cb();
 }
 
+
+// The TLE5012E1000 seemed ideal as a simple magnetic incremental encoder, except that
+// it has a default setting for direction change hysteresis of 0.703 degrees, discovered
+// only after building some boards and trying it out with a motor. This is enough
+// to cause oscillation. It can be changed using the serial SPI'ish interface but this is
+// not currently supported in the code. Below is a nasty hack to make it work, reusing the 
+// current A, B, Z pins as clk, csq, and data. On the positive side, this will give absolute 
+// encoder positions
+
+
+#define GPIO_set_dir_input(bank, pin)       \
+{GPIO_InitTypeDef x =                   \
+    {   .Pin = pin,                     \
+        .Mode = GPIO_MODE_INPUT,        \
+        .Pull = GPIO_NOPULL             \
+    };                                  \
+HAL_GPIO_Init(bank, &x);}
+#define GPIO_set_dir_output(bank, pin, val)      \
+{GPIO_InitTypeDef x =                   \
+    {   .Pin = pin,                     \
+        .Mode = GPIO_MODE_OUTPUT_PP,    \
+        .Pull = GPIO_NOPULL             \
+    };                                  \
+HAL_GPIO_WritePin(bank, pin, val);      \
+HAL_GPIO_Init(bank, &x);}
+
+
+#define M0_ENC_CSQ  M0_ENC_A_Pin
+#define M0_ENC_SCK  M0_ENC_Z_Pin
+#define M0_ENC_DATA M0_ENC_B_Pin
+
+static void send_enc_word(int data)
+{
+    for(int i = 0; i < 16; i++, data<<=1)
+    {
+        // Max toggle rate tested gave ~90ns high and low widths, datasheet needs >40ns
+        // so no delays should be fine here
+        HAL_GPIO_WritePin(GPIOA, M0_ENC_SCK, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, M0_ENC_DATA, (data & 0x8000) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOA, M0_ENC_SCK, GPIO_PIN_RESET);
+    }
+}
+
+static uint16_t read_enc_register(int addr)
+{
+
+    // We can read multiple registers but just do single for now. If words is zero, 
+    // one register is read but there is no safety word. Any number  greater then zero
+    // results in that many words being read, with an additional safety word following.
+    //
+    // The data pin must turn around from output to input
+    //              read        unlock        update      addr          words
+    uint16_t val = (1 << 15) | (0xc << 11) | (0 << 10) | (addr << 4) | (0 << 0);
+
+    GPIO_set_dir_output(GPIOB, M0_ENC_DATA, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, M0_ENC_CSQ, GPIO_PIN_RESET);
+    delay_us(1);    // tcss 105ns
+    send_enc_word(val);
+    GPIO_set_dir_input(GPIOB, M0_ENC_DATA);
+
+    uint16_t data = 0;
+    for(int i = 0; i < 16; i++)
+    {
+        HAL_GPIO_WritePin(GPIOA, M0_ENC_SCK, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOA, M0_ENC_SCK, GPIO_PIN_RESET);
+        data = (data << 1) | (HAL_GPIO_ReadPin(GPIOB, M0_ENC_DATA) ? 1 : 0);
+    }
+    HAL_GPIO_WritePin(GPIOB, M0_ENC_CSQ, GPIO_PIN_SET);
+    return data;
+}
+
+static void write_enc_register(int addr, uint16_t data)
+{
+    //              read        unlock        update      addr          words
+    uint16_t val = (0 << 15) | (0xa << 11) | (0 << 10) | (addr << 4) | (0 << 0);
+
+    GPIO_set_dir_output(GPIOB, M0_ENC_DATA, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, M0_ENC_CSQ, GPIO_PIN_RESET);
+    delay_us(1);    // tcss 105ns
+    send_enc_word(val);
+    send_enc_word(data);
+    GPIO_set_dir_input(GPIOB, M0_ENC_DATA);
+    HAL_GPIO_WritePin(GPIOB, M0_ENC_CSQ, GPIO_PIN_SET);
+}
+
+static void set_hysteresis(int h)
+{
+    uint16_t data = read_enc_register(0xd);
+    data = (data & 0xfffc) | h;
+    write_enc_register(0xd, data);
+}
+
+static uint16_t get_enc_position()
+{
+    return read_enc_register(2) & 0x7fff;
+}
+
 void Encoder::setup() {
+#ifndef ENCODER_TYPE_TLE5012
     HAL_TIM_Encoder_Start(hw_config_.timer, TIM_CHANNEL_ALL);
     GPIO_subscribe(hw_config_.index_port, hw_config_.index_pin, GPIO_NOPULL,
             enc_index_cb_wrapper, this);
+#else
+    if (hw_config_.sck_pin == M1_ENC_Z_Pin) return;
+
+    GPIO_set_dir_output(GPIOB, M0_ENC_CSQ, GPIO_PIN_SET);
+    GPIO_set_dir_output(GPIOA, M0_ENC_SCK, GPIO_PIN_RESET);
+    GPIO_set_dir_output(GPIOB, M0_ENC_DATA, GPIO_PIN_RESET);
+
+    set_hysteresis(0);
+    // volatile int a = 0;
+    // while(1)
+    // {
+    //     //set_hysteresis(0);
+    //     a = read_enc_register(2);
+    //     delay_us(10);
+    // }
+
+#endif
 }
 
 void Encoder::set_error(Encoder::Error_t error) {
@@ -60,7 +175,7 @@ void Encoder::set_linear_count(int32_t count) {
     shadow_count_ = count;
     pos_estimate_ = (float)count;
     //Write hardware last
-    hw_config_.timer->Instance->CNT = count;
+    //hw_config_.timer->Instance->CNT = raw_count_multiplier * count;
 
     __set_PRIMASK(prim);
 }
@@ -233,6 +348,9 @@ static bool decode_hall(uint8_t hall_state, int32_t* hall_cnt) {
 }
 
 bool Encoder::update() {
+
+    if (hw_config_.sck_pin == M1_ENC_Z_Pin) return true;
+
     // Calculate encoder pll gains
     float pll_kp = 2.0f * config_.bandwidth;  // basic conversion to discrete time
     float pll_ki = 0.25f * (pll_kp * pll_kp); // Critically damped
@@ -249,7 +367,8 @@ bool Encoder::update() {
         case MODE_INCREMENTAL: {
             //TODO: use count_in_cpr_ instead as shadow_count_ can overflow
             //or use 64 bit
-            int16_t delta_enc_16 = (int16_t)hw_config_.timer->Instance->CNT - (int16_t)shadow_count_;
+            //int16_t delta_enc_16 = (int16_t)hw_config_.timer->Instance->CNT - (int16_t)shadow_count_;
+            int16_t delta_enc_16 = get_enc_position() - (int16_t)shadow_count_;
             delta_enc = (int32_t)delta_enc_16; //sign extend
         } break;
 

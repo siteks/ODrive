@@ -73,8 +73,9 @@ def start_liveplotter(get_var_callback):
             fig.canvas.start_event_loop(1/plot_rate)
 
     threading.Thread(target=fetch_data, daemon=True).start()
-    threading.Thread(target=plot_data, daemon=True).start()
+    #threading.Thread(target=plot_data, daemon=True).start()
 
+    plot_data()
     return cancellation_token;
     #plot_data()
 
@@ -104,6 +105,38 @@ def show_oscilloscope(odrv):
     plt.plot(values)
     plt.show()
 
+def pe(o):
+    def axis_errors(e):
+        es = ''
+        if e & 0x001:   es += 'invalid_state         '
+        if e & 0x002:   es += 'under_voltage         '
+        if e & 0x004:   es += 'over_voltage          '
+        if e & 0x008:   es += 'current_meas_timeout  '
+        if e & 0x010:   es += 'brake_res_disarmed    '
+        if e & 0x020:   es += 'motor_disarmed        '
+        if e & 0x040:   es += 'motor_failed          '
+        if e & 0x080:   es += 'sensorless_est_failed '
+        if e & 0x100:   es += 'encoder_failed        '
+        if e & 0x200:   es += 'controller_failed     '
+        if e & 0x400:   es += 'pos_ctrl_during_sless '
+        return es
+    def motor_errors(e):
+        es = ''
+        if e & 0x001:   es += 'phase_R_out_of_range '
+        if e & 0x002:   es += 'phase_L_out_of_range '
+        if e & 0x004:   es += 'adc_failed           '
+        if e & 0x008:   es += 'drv_failed           '
+        if e & 0x010:   es += 'ctrl_deadline_missed '
+        if e & 0x020:   es += 'not_implemented_type '
+        if e & 0x040:   es += 'brake_I_out_of_range '
+        if e & 0x080:   es += 'modulation_magnitude '
+        if e & 0x100:   es += 'brake_deadtime_viol  '
+        if e & 0x200:   es += 'unexpected_tmr_cback '
+        return es
+
+    print('axis0.error:      %04x %s' % (o.axis0.error, axis_errors(o.axis0.error)))
+    print('axis0.motor.error:%04x %s' % (o.axis0.motor.error, motor_errors(o.axis0.motor.error)))
+    
 def rate_test(device):
     """
     Tests how many integers per second can be transmitted
