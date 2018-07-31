@@ -18,6 +18,7 @@ struct ControllerConfig_t {
     Motor_control_mode_t control_mode = CTRL_MODE_POSITION_CONTROL;  //see: Motor_control_mode_t
     float pos_gain = 20.0f;  // [(counts/s) / counts]
     float vel_gain = 5.0f / 10000.0f;  // [A/(counts/s)]
+    float pos_int_gain = 0.0f;
     // float vel_gain = 5.0f / 200.0f, // [A/(rad/s)] <sensorless example>
     float vel_integrator_gain = 10.0f / 10000.0f;  // [A/(counts/s * s)]
     float vel_limit = 20000.0f;           // [counts/s]
@@ -70,6 +71,7 @@ public:
     // float vel_setpoint = 800.0f; <sensorless example>
     float vel_integrator_current_ = 0.0f;  // [A]
     float current_setpoint_ = 0.0f;        // [A]
+    float pos_int_current = 0.0f;
 
     // Communication protocol definitions
     auto make_protocol_definitions() {
@@ -82,6 +84,7 @@ public:
                 make_protocol_property("control_mode", &config_.control_mode),
                 make_protocol_property("pos_gain", &config_.pos_gain),
                 make_protocol_property("vel_gain", &config_.vel_gain),
+                make_protocol_property("pos_int_gain", &config_.pos_int_gain),
                 make_protocol_property("vel_integrator_gain", &config_.vel_integrator_gain),
                 make_protocol_property("vel_limit", &config_.vel_limit)
             ),

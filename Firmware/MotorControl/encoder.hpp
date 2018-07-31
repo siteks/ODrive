@@ -78,6 +78,10 @@ public:
     // Updated by low_level pwm_adc_cb
     uint8_t hall_state_ = 0x0; // bit[0] = HallA, .., bit[2] = HallC
 
+    int16_t pos_map[20000];
+
+
+
     // Communication protocol definitions
     auto make_protocol_definitions() {
         return make_protocol_member_list(

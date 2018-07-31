@@ -181,6 +181,50 @@ bool Axis::run_sensorless_control_loop() {
     return error_ == ERROR_NONE;
 }
 
+bool Axis::run_manual_control_loop() {
+    run_control_loop([this](){
+        if (controller_.config_.control_mode >= CTRL_MODE_POSITION_CONTROL)
+            return error_ |= ERROR_POS_CTRL_DURING_MANUAL, false;
+
+        // Note that all estimators are updated in the loop prefix in run_control_loop
+        float current_setpoint;
+        if (!controller_.update(sensorless_estimator_.pll_pos_, sensorless_estimator_.pll_vel_, &current_setpoint))
+            return error_ |= ERROR_CONTROLLER_FAILED, false;
+        if (!motor_.update(current_setpoint, sensorless_estimator_.phase_))
+            return false; // set_error should update axis.error_
+        return true;
+
+    // Early Spin-up: spiral up current
+    float x = 0.0f;
+    run_control_loop([&](){
+        float phase = wrap_pm_pi(config_.ramp_up_distance * x);
+        float I_mag = config_.spin_up_current * x;
+        x += current_meas_period / config_.ramp_up_time;
+        if (!motor_.update(I_mag, phase))
+            return error_ |= ERROR_MOTOR_FAILED, false;
+        return x < 1.0f;
+    });
+    if (error_ != ERROR_NONE)
+        return false;
+    
+    // Late Spin-up: accelerate
+    float vel = config_.ramp_up_distance / config_.ramp_up_time;
+    float phase = wrap_pm_pi(config_.ramp_up_distance);
+    run_control_loop([&](){
+        if (vel < config_.spin_up_target_vel)
+            vel += config_.spin_up_acceleration * current_meas_period;
+        phase = wrap_pm_pi(phase + vel * current_meas_period);
+        float I_mag = config_.spin_up_current;
+        if (!motor_.update(I_mag, phase))
+            return error_ |= ERROR_MOTOR_FAILED, false;
+
+    });
+
+
+    });
+    return error_ == ERROR_NONE;
+}
+
 bool Axis::run_closed_loop_control_loop() {
     set_step_dir_enabled(config_.enable_step_dir);
     run_control_loop([this](){
@@ -213,9 +257,9 @@ void Axis::run_state_machine_loop() {
     // TODO: Move this somewhere else
     // TODO: respect changes of CPR
     int encoder_cpr = encoder_.config_.cpr;
-    controller_.anticogging_.cogging_map = (float*)malloc(encoder_cpr * sizeof(float));
+    //controller_.anticogging_.cogging_map = (float*)malloc((encoder_cpr >> 2) * sizeof(float));
     if (controller_.anticogging_.cogging_map != NULL) {
-        for (int i = 0; i < encoder_cpr; i++) {
+        for (int i = 0; i < (encoder_cpr >> 2); i++) {
             controller_.anticogging_.cogging_map[i] = 0.0f;
         }
     }
@@ -282,6 +326,10 @@ void Axis::run_state_machine_loop() {
                 status = run_sensorless_spin_up(); // TODO: restart if desired
                 if (status)
                     status = run_sensorless_control_loop();
+                break;
+
+            case AXIS_STATE_MANUAL_CONTROL:
+                status = run_manual_control_loop();
                 break;
 
             case AXIS_STATE_CLOSED_LOOP_CONTROL:

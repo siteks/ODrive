@@ -14,9 +14,10 @@ enum AxisState_t {
     AXIS_STATE_FULL_CALIBRATION_SEQUENCE = 3,   //<! run all calibration procedures, then idle
     AXIS_STATE_MOTOR_CALIBRATION = 4,   //<! run motor calibration
     AXIS_STATE_SENSORLESS_CONTROL = 5,  //<! run sensorless control
-    AXIS_STATE_ENCODER_INDEX_SEARCH = 6, //<! run encoder index search
-    AXIS_STATE_ENCODER_OFFSET_CALIBRATION = 7, //<! run encoder offset calibration
-    AXIS_STATE_CLOSED_LOOP_CONTROL = 8  //<! run closed loop control
+    AXIS_STATE_MANUAL_CONTROL = 6,
+    AXIS_STATE_ENCODER_INDEX_SEARCH = 7, //<! run encoder index search
+    AXIS_STATE_ENCODER_OFFSET_CALIBRATION = 8, //<! run encoder offset calibration
+    AXIS_STATE_CLOSED_LOOP_CONTROL = 9  //<! run closed loop control
 };
 
 struct AxisConfig_t {
@@ -54,6 +55,7 @@ public:
         ERROR_ENCODER_FAILED = 0x100,
         ERROR_CONTROLLER_FAILED = 0x200,
         ERROR_POS_CTRL_DURING_SENSORLESS = 0x400,
+        ERROR_POS_CTRL_DURING_MANUAL = 0x400,
     };
 
     enum thread_signals {
@@ -133,6 +135,7 @@ public:
 
     bool run_sensorless_spin_up();
     bool run_sensorless_control_loop();
+    bool run_manual_control_loop();
     bool run_closed_loop_control_loop();
     bool run_idle_loop();
 

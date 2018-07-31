@@ -133,6 +133,9 @@ void Encoder::setup() {
     set_hysteresis(0);
     delay_us(10);
 
+    if (config_.pre_calibrated)
+        is_ready_ = true;
+
     // volatile int a = 0;
     // while(1)
     // {
@@ -287,6 +290,7 @@ bool Encoder::run_offset_calibration() {
         axis_->motor_.log_timing(Motor::TIMING_LOG_ENC_CALIB);
 
         encvaluesum += shadow_count_;
+        if (i<40000) pos_map[i>>1] = shadow_count_;
         
         return ++i < num_steps;
     });
@@ -355,6 +359,8 @@ static bool decode_hall(uint8_t hall_state, int32_t* hall_cnt) {
 
 bool Encoder::update() {
 
+    // SJ hack to stop encoder 1 doing stuff, until properly refactor gpio pins to
+    // be specific to particular encoder
     if (hw_config_.sck_pin == M1_ENC_Z_Pin) return true;
 
     // Calculate encoder pll gains

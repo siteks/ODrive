@@ -60,13 +60,13 @@ void Controller::start_anticogging_calibration() {
  */
 bool Controller::anticogging_calibration(float pos_estimate, float vel_estimate) {
     if (anticogging_.calib_anticogging && anticogging_.cogging_map != NULL) {
-        float pos_err = anticogging_.index - pos_estimate;
+        float pos_err = (anticogging_.index << 2) - pos_estimate;
         if (fabsf(pos_err) <= anticogging_.calib_pos_threshold &&
             fabsf(vel_estimate) < anticogging_.calib_vel_threshold) {
             anticogging_.cogging_map[anticogging_.index++] = vel_integrator_current_;
         }
-        if (anticogging_.index < axis_->encoder_.config_.cpr) { // TODO: remove the dependency on encoder CPR
-            set_pos_setpoint(anticogging_.index, 0.0f, 0.0f);
+        if (anticogging_.index < (axis_->encoder_.config_.cpr >> 2)) { // TODO: remove the dependency on encoder CPR
+            set_pos_setpoint(anticogging_.index << 2, 0.0f, 0.0f);
             return false;
         } else {
             anticogging_.index = 0;
@@ -97,9 +97,10 @@ bool Controller::update(float pos_estimate, float vel_estimate, float* current_s
         vel_des += config_.pos_gain * pos_err;
     }
 #else
+    float pos_err = pos_setpoint_ - pos_estimate;
     if (config_.control_mode >= CTRL_MODE_POSITION_CONTROL) {
-        float pos_err = pos_setpoint_ - pos_estimate;
         vel_des += config_.pos_gain * pos_err;
+        Iq += pos_int_current;
     }
 #endif
 
@@ -114,7 +115,7 @@ bool Controller::update(float pos_estimate, float vel_estimate, float* current_s
     // We get the current position and apply a current feed-forward
     // ensuring that we handle negative encoder positions properly (-1 == motor->encoder.encoder_cpr - 1)
     if (anticogging_.use_anticogging) {
-        Iq += anticogging_.cogging_map[mod(static_cast<int>(pos_estimate), axis_->encoder_.config_.cpr)];
+        Iq += anticogging_.cogging_map[(mod(static_cast<int>(pos_estimate), axis_->encoder_.config_.cpr) >> 2)];
     }
 
     float v_err = vel_des - vel_estimate;
@@ -145,8 +146,10 @@ bool Controller::update(float pos_estimate, float vel_estimate, float* current_s
         if (limited) {
             // TODO make decayfactor configurable
             vel_integrator_current_ *= 0.99f;
+            pos_int_current *= 0.99f;
         } else {
             vel_integrator_current_ += (config_.vel_integrator_gain * current_meas_period) * v_err;
+            pos_int_current += config_.pos_int_gain * current_meas_period * pos_err;
         }
     }
 
