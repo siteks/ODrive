@@ -68,6 +68,7 @@ public:
     int32_t offset_ = 0;
     float interpolation_ = 0.0f;
     float phase_ = 0.0f;    // [rad]
+    float phys_phase_ = 0.0f;    // [rad]
     float pos_estimate_ = 0.0f;  // [rad]
     float pos_cpr_ = 0.0f;  // [rad]
     float pll_vel_ = 0.0f;  // [rad/s]
@@ -93,6 +94,7 @@ public:
             make_protocol_property("offset", &offset_),
             make_protocol_property("interpolation", &interpolation_),
             make_protocol_property("phase", &phase_),
+            make_protocol_property("phys_phase", &phys_phase_),
             make_protocol_property("pos_estimate", &pos_estimate_),
             make_protocol_property("pos_cpr", &pos_cpr_),
             make_protocol_property("hall_state", &hall_state_),

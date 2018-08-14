@@ -7,7 +7,7 @@ Encoder::Encoder(const EncoderHardwareConfig_t& hw_config,
         hw_config_(hw_config),
         config_(config)
 {
-    if (config.pre_calibrated && (config.mode == Encoder::MODE_HALL)) {
+    if (config.pre_calibrated) {
         offset_ = config.offset;
         is_ready_ = true;
     }
@@ -459,6 +459,10 @@ bool Encoder::update() {
     float ph = elec_rad_per_enc * (interpolated_enc - config_.offset_float);
     // ph = fmodf(ph, 2*M_PI);
     phase_ = wrap_pm_pi(ph);
+
+    const float phys_rad_per_enc = 2 * M_PI / (float)config_.cpr;
+    float pph = phys_rad_per_enc * (interpolated_enc - config_.offset_float);
+    phys_phase_ = wrap_pm_pi(pph);
 
     return true;
 }

@@ -61,8 +61,8 @@ public:
         .cogging_map = nullptr,
         .use_anticogging = false,
         .calib_anticogging = false,
-        .calib_pos_threshold = 1.0f,
-        .calib_vel_threshold = 1.0f,
+        .calib_pos_threshold = 200.0f,
+        .calib_vel_threshold = 2000.0f,
     };
 
     // variables exposed on protocol

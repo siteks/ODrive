@@ -160,6 +160,17 @@ public:
     AxisState_t& current_state_ = task_chain_[0];
     uint32_t loop_counter_ = 0;
 
+#define PBUFSIZE 1300
+    float phase_error[PBUFSIZE];
+    float phase_error2[PBUFSIZE];
+    float current_modulation[PBUFSIZE];
+
+    uint32_t index;
+    float get_perror();
+    void set_imap(float m);
+    float mod_depth = 0.0f;
+
+    int loops;
     // Communication protocol definitions
     auto make_protocol_definitions() {
         return make_protocol_member_list(
@@ -168,6 +179,10 @@ public:
             make_protocol_ro_property("current_state", &current_state_),
             make_protocol_property("requested_state", &requested_state_),
             make_protocol_ro_property("loop_counter", &loop_counter_),
+            make_protocol_property("index", &index),
+            make_protocol_property("mod_depth", &mod_depth),
+            make_protocol_function("get_perror", *this, &Axis::get_perror),
+            make_protocol_function("set_imap", *this, &Axis::set_imap, "m"),
             make_protocol_object("config",
                 make_protocol_property("startup_motor_calibration", &config_.startup_motor_calibration),
                 make_protocol_property("startup_encoder_index_search", &config_.startup_encoder_index_search),

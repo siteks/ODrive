@@ -34,6 +34,14 @@ static void step_cb_wrapper(void* ctx) {
 void Axis::setup() {
     encoder_.setup();
     motor_.setup();
+
+    // zero phase error array
+    for (int i = 0; i < PBUFSIZE; i++)
+    {
+        phase_error[i] = 0.0f;
+        phase_error2[i] = 0.0f;
+        current_modulation[i] = 0.0f;
+    }
 }
 
 static void run_state_machine_loop_wrapper(void* ctx) {
@@ -46,6 +54,7 @@ void Axis::start_thread() {
     osThreadDef(thread_def, run_state_machine_loop_wrapper, hw_config_.thread_priority, 0, 4*512);
     thread_id_ = osThreadCreate(osThread(thread_def), this);
     thread_id_valid_ = true;
+
 }
 
 // @brief Unblocks the control loop thread.
@@ -129,7 +138,18 @@ float Axis::get_temp() {
     return horner_fma(normalized_voltage, thermistor_poly_coeffs, thermistor_num_coeffs);
 }
 
+float Axis::get_perror()
+{
+    return phase_error2[index];
+}
+
+void Axis::set_imap(float m)
+{
+    current_modulation[index] = m;
+}
+
 bool Axis::run_sensorless_spin_up() {
+
     // Early Spin-up: spiral up current
     float x = 0.0f;
     run_control_loop([&](){
@@ -149,6 +169,8 @@ bool Axis::run_sensorless_spin_up() {
     run_control_loop([&](){
         vel += config_.spin_up_acceleration * current_meas_period;
         phase = wrap_pm_pi(phase + vel * current_meas_period);
+
+
         float I_mag = config_.spin_up_current;
         if (!motor_.update(I_mag, phase))
             return error_ |= ERROR_MOTOR_FAILED, false;
@@ -182,17 +204,7 @@ bool Axis::run_sensorless_control_loop() {
 }
 
 bool Axis::run_manual_control_loop() {
-    run_control_loop([this](){
-        if (controller_.config_.control_mode >= CTRL_MODE_POSITION_CONTROL)
-            return error_ |= ERROR_POS_CTRL_DURING_MANUAL, false;
 
-        // Note that all estimators are updated in the loop prefix in run_control_loop
-        float current_setpoint;
-        if (!controller_.update(sensorless_estimator_.pll_pos_, sensorless_estimator_.pll_vel_, &current_setpoint))
-            return error_ |= ERROR_CONTROLLER_FAILED, false;
-        if (!motor_.update(current_setpoint, sensorless_estimator_.phase_))
-            return false; // set_error should update axis.error_
-        return true;
 
     // Early Spin-up: spiral up current
     float x = 0.0f;
@@ -210,23 +222,85 @@ bool Axis::run_manual_control_loop() {
     // Late Spin-up: accelerate
     float vel = config_.ramp_up_distance / config_.ramp_up_time;
     float phase = wrap_pm_pi(config_.ramp_up_distance);
+    loops = 0;
+    int idx = 0;
+    float p_incr;
+    int state = 0;
+    float I_mag = config_.spin_up_current;
+    int steps;
+    float offset;
     run_control_loop([&](){
-        if (vel < config_.spin_up_target_vel)
-            vel += config_.spin_up_acceleration * current_meas_period;
-        phase = wrap_pm_pi(phase + vel * current_meas_period);
-        float I_mag = config_.spin_up_current;
+
+        switch (state)
+        {
+            case 0:
+                // Spin up to velocity
+                if (vel < config_.spin_up_target_vel)
+                {
+                    vel += config_.spin_up_acceleration * current_meas_period;
+                    p_incr = vel * current_meas_period;
+                }
+                else
+                {
+                    // we need to ensure that there is an exact number of steps per complete
+                    // electrical phase. 
+                    p_incr = vel * current_meas_period;
+                    steps = (int)(2 * M_PI / p_incr);
+                    p_incr = 2 * M_PI / (float)steps;
+                    offset = phase + p_incr;
+                    state = 1;
+                }
+                phase = wrap_pm_pi(phase + p_incr);
+                break;
+            case 1:
+                // Wait for some eletrical rotations to go past
+                idx = (idx + 1) % steps;
+                if (idx == 0)
+                {
+                    loops++;
+                    if (loops > 100)
+                    {
+                        state = 2;
+                        loops = 0;
+                    }
+                }
+                phase = wrap_pm_pi(offset + idx * p_incr);
+                break;
+            case 2:
+                // Grab a physical rotations worth of data
+                phase_error[idx] = phase; 
+                phase_error2[loops * steps + idx] = encoder_.phys_phase_; 
+                idx = (idx + 1) % steps;
+                if (idx == 0)
+                {
+                    loops++;
+                    if (loops == motor_.config_.pole_pairs)
+                        state = 3;
+                }
+                phase = wrap_pm_pi(offset + idx * p_incr);
+                break;
+            case 3:
+                // Now run using the lookup table to modulate the current
+                idx = (idx + 1) % steps;
+                phase = wrap_pm_pi(offset + idx * p_incr);
+                I_mag = config_.spin_up_current * (1 + mod_depth * current_modulation[idx]);
+                break;
+            default:;
+        }
+
+
         if (!motor_.update(I_mag, phase))
             return error_ |= ERROR_MOTOR_FAILED, false;
-
+        return true;
     });
 
 
-    });
     return error_ == ERROR_NONE;
 }
 
 bool Axis::run_closed_loop_control_loop() {
     set_step_dir_enabled(config_.enable_step_dir);
+
     run_control_loop([this](){
         // Note that all estimators are updated in the loop prefix in run_control_loop
         float current_setpoint;
