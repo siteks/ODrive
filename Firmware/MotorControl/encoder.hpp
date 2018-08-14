@@ -18,11 +18,12 @@ public:
 
     enum Mode_t {
         MODE_INCREMENTAL,
-        MODE_HALL
+        MODE_HALL,
+        MODE_ABSOLUTE
     };
 
     struct Config_t {
-        Encoder::Mode_t mode = Encoder::MODE_INCREMENTAL;
+        Encoder::Mode_t mode = Encoder::MODE_ABSOLUTE;
         bool use_index = false;
         bool pre_calibrated = false; // If true, this means the offset stored in
                                     // configuration is valid and does not need
@@ -30,7 +31,8 @@ public:
                                     // In this case the encoder will enter ready
                                     // state as soon as the index is found.
         float idx_search_speed = 10.0f; // [rad/s electrical]
-        int32_t cpr = (2048 * 4);   // Default resolution of CUI-AMT102 encoder,
+        //int32_t cpr = (2048 * 4);   // Default resolution of CUI-AMT102 encoder,
+        int32_t cpr = 32768;   // Default resolution of TLE5012,
         int32_t offset = 0; // If pre_calibrated is true, this is copied into encoder.offset_ once
                             // index search succeeds
         float offset_float = 0.0f; // Sub-count phase alignment offset

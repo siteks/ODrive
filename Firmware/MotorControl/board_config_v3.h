@@ -30,6 +30,7 @@ typedef struct {
 } AxisHardwareConfig_t;
 
 typedef struct {
+    TIM_HandleTypeDef* timer;
 #ifdef ENCODER_TYPE_TLE5012
     GPIO_TypeDef* sck_port;
     uint16_t sck_pin;
@@ -38,7 +39,6 @@ typedef struct {
     GPIO_TypeDef* data_port;
     uint16_t data_pin;
 #else
-    TIM_HandleTypeDef* timer;
     GPIO_TypeDef* index_port;
     uint16_t index_pin;
     GPIO_TypeDef* hallA_port;
@@ -92,6 +92,7 @@ const BoardHardwareConfig_t hw_configs[2] = { {
     },
 #ifdef ENCODER_TYPE_TLE5012
     .encoder_config = {
+        .timer = &htim3,
         .sck_port = M0_ENC_Z_GPIO_Port,
         .sck_pin = M0_ENC_Z_Pin,
         .csq_port = M0_ENC_A_GPIO_Port,
@@ -150,6 +151,7 @@ const BoardHardwareConfig_t hw_configs[2] = { {
     },
 #ifdef ENCODER_TYPE_TLE5012
     .encoder_config = {
+        .timer = &htim4,
         .sck_port = M1_ENC_Z_GPIO_Port,
         .sck_pin = M1_ENC_Z_Pin,
         .csq_port = M1_ENC_A_GPIO_Port,
