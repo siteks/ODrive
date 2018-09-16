@@ -136,6 +136,8 @@ def pe(o):
 
     print('axis0.error:      %04x %s' % (o.axis0.error, axis_errors(o.axis0.error)))
     print('axis0.motor.error:%04x %s' % (o.axis0.motor.error, motor_errors(o.axis0.motor.error)))
+    print('axis1.error:      %04x %s' % (o.axis1.error, axis_errors(o.axis1.error)))
+    print('axis1.motor.error:%04x %s' % (o.axis1.motor.error, motor_errors(o.axis1.motor.error)))
     
 def rate_test(device):
     """

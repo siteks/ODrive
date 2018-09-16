@@ -31,6 +31,11 @@ elseif boardversion == "v3.5-48V" then
     boarddir = 'Board/v3'
     FLAGS += "-DHW_VERSION_MAJOR=3 -DHW_VERSION_MINOR=5"
     FLAGS += "-DHW_VERSION_VOLTAGE=48"
+elseif boardversion == "v3.4-sdrive" then
+    boarddir = 'Board/v3'
+    FLAGS += "-DHW_VERSION_MAJOR=3 -DHW_VERSION_MINOR=4"
+    FLAGS += "-DHW_VERSION_VOLTAGE=24"
+    FLAGS += "-DSDRIVE"
 elseif boardversion == "" then
     error("board version not specified - take a look at tup.config.default")
 else
@@ -147,6 +152,7 @@ build{
     packages={'stm_platform'},
     sources={
         'Drivers/DRV8323/drv8323.c',
+        'Drivers/DRV8301/drv8301.c',
         'MotorControl/utils.c',
         'MotorControl/low_level.cpp',
         'MotorControl/nvm.c',
@@ -167,6 +173,7 @@ build{
     },
     includes={
         'Drivers/DRV8323',
+        'Drivers/DRV8301',
         'MotorControl',
         'fibre/cpp/include',
         '.'

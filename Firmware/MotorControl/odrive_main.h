@@ -16,7 +16,7 @@ extern "C" {
 // OS includes
 #include <cmsis_os.h>
 
-#define ENCODER_TYPE_TLE5012
+
 // Hardware configuration
 #if HW_VERSION_MAJOR == 3
 #include "board_config_v3.h"

@@ -166,6 +166,17 @@ void ASCII_protocol_process_line(const uint8_t* buffer, size_t len, StreamSink& 
                     respond(response_channel, use_checksum, response);
             }
         }
+    } else if (cmd[0] == 'e') { // Read encoder position
+        unsigned motor_number;
+        int numscan = sscanf(cmd, "e %u", &motor_number);
+        if (numscan < 1) {
+            respond(response_channel, use_checksum, "invalid command format");
+        } else if (motor_number >= AXIS_COUNT) {
+            respond(response_channel, use_checksum, "invalid motor %u", motor_number);
+        } else {
+            float pos = axes[motor_number]->encoder_.pos_estimate_;
+            respond(response_channel, use_checksum, "%.0f", pos);
+        }
 
     } else if (cmd[0] == 'w') { // write property
         char name[MAX_LINE_LENGTH];

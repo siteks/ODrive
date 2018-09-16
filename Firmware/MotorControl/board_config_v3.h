@@ -5,17 +5,25 @@
 #ifndef __BOARD_CONFIG_H
 #define __BOARD_CONFIG_H
 
+
 // STM specific includes
 #include <gpio.h>
 #include <spi.h>
 #include <tim.h>
 #include <main.h>
 
+// Absolute position magnetic encoder
+#define ENCODER_TYPE_TLE5012
+
 #if HW_VERSION_MAJOR == 3
 #if HW_VERSION_MINOR <= 3
 #define SHUNT_RESISTANCE (675e-6f)
 #else
+#ifdef SDRIVE
 #define SHUNT_RESISTANCE (1000e-6f)
+#else
+#define SHUNT_RESISTANCE (500e-6f)
+#endif
 #endif
 #endif
 

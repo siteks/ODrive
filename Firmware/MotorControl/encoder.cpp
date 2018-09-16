@@ -44,9 +44,6 @@ HAL_GPIO_WritePin(bank, pin, val);      \
 HAL_GPIO_Init(bank, &x);}
 
 
-#define M0_ENC_CSQ  M0_ENC_A_Pin
-#define M0_ENC_SCK  M0_ENC_Z_Pin
-#define M0_ENC_DATA M0_ENC_B_Pin
 
 static void send_enc_word(const EncoderHardwareConfig_t &hw_config, int data)
 {
@@ -54,9 +51,9 @@ static void send_enc_word(const EncoderHardwareConfig_t &hw_config, int data)
     {
         // Max toggle rate tested gave ~90ns high and low widths, datasheet needs >40ns
         // so no delays should be fine here
-        HAL_GPIO_WritePin(GPIOA, M0_ENC_SCK, GPIO_PIN_SET);
-        HAL_GPIO_WritePin(GPIOB, M0_ENC_DATA, (data & 0x8000) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(GPIOA, M0_ENC_SCK, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(hw_config.sck_port, hw_config.sck_pin, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(hw_config.data_port, hw_config.data_pin, (data & 0x8000) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(hw_config.sck_port, hw_config.sck_pin, GPIO_PIN_RESET);
     }
 }
 
@@ -71,20 +68,20 @@ static uint16_t read_enc_register(const EncoderHardwareConfig_t &hw_config, int 
     //              read        unlock        update      addr          words
     uint16_t val = (1 << 15) | (0xc << 11) | (0 << 10) | (addr << 4) | (0 << 0);
 
-    GPIO_set_dir_output(GPIOB, M0_ENC_DATA, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, M0_ENC_CSQ, GPIO_PIN_RESET);
+    GPIO_set_dir_output(hw_config.data_port, hw_config.data_pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(hw_config.csq_port, hw_config.csq_pin, GPIO_PIN_RESET);
     delay_us(1);    // tcss 105ns
     send_enc_word(hw_config, val);
-    GPIO_set_dir_input(GPIOB, M0_ENC_DATA);
+    GPIO_set_dir_input(hw_config.data_port, hw_config.data_pin);
 
     uint16_t data = 0;
     for(int i = 0; i < 16; i++)
     {
-        HAL_GPIO_WritePin(GPIOA, M0_ENC_SCK, GPIO_PIN_SET);
-        HAL_GPIO_WritePin(GPIOA, M0_ENC_SCK, GPIO_PIN_RESET);
-        data = (data << 1) | (HAL_GPIO_ReadPin(GPIOB, M0_ENC_DATA) ? 1 : 0);
+        HAL_GPIO_WritePin(hw_config.sck_port, hw_config.sck_pin, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(hw_config.sck_port, hw_config.sck_pin, GPIO_PIN_RESET);
+        data = (data << 1) | (HAL_GPIO_ReadPin(hw_config.data_port, hw_config.data_pin) ? 1 : 0);
     }
-    HAL_GPIO_WritePin(GPIOB, M0_ENC_CSQ, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(hw_config.csq_port, hw_config.csq_pin, GPIO_PIN_SET);
     return data;
 }
 
@@ -93,13 +90,13 @@ static void write_enc_register(const EncoderHardwareConfig_t &hw_config, int add
     //              read        unlock        update      addr          words
     uint16_t val = (0 << 15) | (0xa << 11) | (0 << 10) | (addr << 4) | (0 << 0);
 
-    GPIO_set_dir_output(GPIOB, M0_ENC_DATA, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, M0_ENC_CSQ, GPIO_PIN_RESET);
+    GPIO_set_dir_output(hw_config.data_port, hw_config.data_pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(hw_config.csq_port, hw_config.csq_pin, GPIO_PIN_RESET);
     delay_us(1);    // tcss 105ns
     send_enc_word(hw_config, val);
     send_enc_word(hw_config, data);
-    GPIO_set_dir_input(GPIOB, M0_ENC_DATA);
-    HAL_GPIO_WritePin(GPIOB, M0_ENC_CSQ, GPIO_PIN_SET);
+    GPIO_set_dir_input(hw_config.data_port, hw_config.data_pin);
+    HAL_GPIO_WritePin(hw_config.csq_port, hw_config.csq_pin, GPIO_PIN_SET);
 }
 
 static void set_hysteresis(const EncoderHardwareConfig_t &hw_config, int h)
@@ -353,7 +350,7 @@ bool Encoder::update() {
 
     // SJ hack to stop encoder 1 doing stuff, until properly refactor gpio pins to
     // be specific to particular encoder
-    if (hw_config_.sck_pin == M1_ENC_Z_Pin) return true;
+    //if (hw_config_.sck_pin == M1_ENC_Z_Pin) return true;
 
     // Calculate encoder pll gains
     float pll_kp = 2.0f * config_.bandwidth;  // basic conversion to discrete time
