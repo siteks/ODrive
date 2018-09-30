@@ -279,7 +279,6 @@ bool Encoder::run_offset_calibration() {
         axis_->motor_.log_timing(Motor::TIMING_LOG_ENC_CALIB);
 
         encvaluesum += shadow_count_;
-        if (i<40000) pos_map[i>>1] = shadow_count_;
         
         return ++i < num_steps;
     });

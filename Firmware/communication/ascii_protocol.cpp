@@ -200,6 +200,7 @@ void ASCII_protocol_process_line(const uint8_t* buffer, size_t len, StreamSink& 
     }
 }
 
+
 void ASCII_protocol_parse_stream(const uint8_t* buffer, size_t len, StreamSink& response_channel) {
     static uint8_t parse_buffer[MAX_LINE_LENGTH];
     static bool read_active = true;
@@ -211,7 +212,7 @@ void ASCII_protocol_parse_stream(const uint8_t* buffer, size_t len, StreamSink& 
             read_active = false;
             parse_buffer_idx = 0;
         }
-
+ 
         // Fetch the next char
         uint8_t c = *(buffer++);
         bool is_end_of_line = (c == '\r' || c == '\n' || c == '!');
@@ -223,7 +224,6 @@ void ASCII_protocol_parse_stream(const uint8_t* buffer, size_t len, StreamSink& 
         } else {
             if (read_active) {
                 parse_buffer[parse_buffer_idx++] = c;
-            }
         }
     }
 }
