@@ -11,9 +11,10 @@ public:
         ERROR_NONE = 0,
         ERROR_UNSTABLE_GAIN = 0x01,
         ERROR_CPR_OUT_OF_RANGE = 0x02,
-        ERROR_RESPONSE = 0x04,
+        ERROR_NO_RESPONSE = 0x04,
         ERROR_UNSUPPORTED_ENCODER_MODE = 0x08,
         ERROR_ILLEGAL_HALL_STATE = 0x10,
+        ERROR_INDEX_NOT_FOUND_YET = 0x20,
     };
 
     enum Mode_t {
@@ -50,7 +51,7 @@ public:
     void enc_index_cb();
 
     void set_linear_count(int32_t count);
-    void set_circular_count(int32_t count);
+    void set_circular_count(int32_t count, bool update_offset);
     bool calib_enc_offset(float voltage_magnitude);
     bool scan_for_enc_idx(float omega, float voltage_magnitude);
 
@@ -67,16 +68,16 @@ public:
     bool is_ready_ = false;
     int32_t shadow_count_ = 0;
     int32_t count_in_cpr_ = 0;
-    int32_t offset_ = 0;
     float interpolation_ = 0.0f;
     float phase_ = 0.0f;    // [rad]
     float phys_phase_ = 0.0f;    // [rad]
     float pos_estimate_ = 0.0f;  // [rad]
     float pos_cpr_ = 0.0f;  // [rad]
-    float pll_vel_ = 0.0f;  // [rad/s]
+    float vel_estimate_ = 0.0f;  // [rad/s]
     // float pll_kp_ = 0.0f;   // [rad/s / rad]
     // float pll_ki_ = 0.0f;   // [(rad/s^2) / rad]
     int16_t last_pos = 0;
+
 
     // Updated by low_level pwm_adc_cb
     uint8_t hall_state_ = 0x0; // bit[0] = HallA, .., bit[2] = HallC
@@ -90,14 +91,13 @@ public:
             make_protocol_ro_property("index_found", const_cast<bool*>(&index_found_)),
             make_protocol_property("shadow_count", &shadow_count_),
             make_protocol_property("count_in_cpr", &count_in_cpr_),
-            make_protocol_property("offset", &offset_),
             make_protocol_property("interpolation", &interpolation_),
             make_protocol_property("phase", &phase_),
             make_protocol_property("phys_phase", &phys_phase_),
             make_protocol_property("pos_estimate", &pos_estimate_),
             make_protocol_property("pos_cpr", &pos_cpr_),
             make_protocol_property("hall_state", &hall_state_),
-            make_protocol_property("pll_vel", &pll_vel_),
+            make_protocol_property("vel_estimate", &vel_estimate_),
             // make_protocol_property("pll_kp", &pll_kp_),
             // make_protocol_property("pll_ki", &pll_ki_),
             make_protocol_object("config",

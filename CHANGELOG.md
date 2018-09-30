@@ -1,7 +1,40 @@
 # Unreleased Features
 Please add a note of your changes below this heading if you make a Pull Request.
 
-## UNRELEASED
+# Unreleased
+
+### Added
+* **Trapezoidal Trajectory Planner**
+* -Wdouble-promotion warning to compilation
+
+### Changed
+* Make python tools compatible with python 2.7 (so it can be used with ROS)
+  * Threading API constructor can't take the daemon parameter, so all thread creation had to be expanded out.
+  * `TimeoutError` isn't defined, but it makes for more readable code, so I defined it as an OSError subclass.
+  * `ModuleNotFoundError` is replaced by the older ImportError.
+  * Print function imported from future
+
+# Releases
+## [0.4.4] - 2018-09-18
+### Fixed
+* Serious reliability issue with USB communication where packets on Native and the CDC interface would collide with each other.
+
+## [0.4.3] - 2018-08-30
+### Added
+* Encoder position count "homed" to zero when index is found.
+
+### Changed
+* We now enforce encoder offset calibration must happen after index is found (if using index)
+* Renaming of the velocity estimate `pll_vel` -> `vel_estimate`.
+* Hardcoded maximum inductance now 2500 uH.
+
+### Fixed
+* Incorrect shifting of offset during index callback
+* Once you got an axis error `ERROR_INVALID_STATE` you could never clear it
+* Char to int conversion to read motornum on arduino example
+* GPIO above #5 would not be used correctly in some cases
+
+## [0.4.2] - 2018-08-04
 ### Added
 * Hall sensor feedback
 * Configurable RC PWM input
@@ -10,8 +43,8 @@ Please add a note of your changes below this heading if you make a Pull Request.
   * `motor.config.requested_current_range`
   * `motor.config.current_control_bandwidth` and `motor.set_current_control_bandwidth`. Latter required to invoke gain recalculation.
   * `encoder.config.bandwidth`
+  * `sensorless_estimator.config.pm_flux_linkage`
 
-# Releases
 ## [0.4.1] - 2018-07-01
 ### Fixed
 * Encoder errors would show up as Axis error `ERROR_MOTOR_FAILED` instead of `ERROR_ENCODER_FAILED`.
