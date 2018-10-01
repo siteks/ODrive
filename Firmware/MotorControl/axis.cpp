@@ -38,13 +38,6 @@ void Axis::setup() {
     encoder_.setup();
     motor_.setup();
 
-    // zero phase error array
-    for (int i = 0; i < PBUFSIZE; i++)
-    {
-        phase_error[i] = 0.0f;
-        phase_error2[i] = 0.0f;
-        current_modulation[i] = 0.0f;
-    }
 }
 
 static void run_state_machine_loop_wrapper(void* ctx) {
@@ -348,11 +341,11 @@ void Axis::run_state_machine_loop() {
     // TODO: respect changes of CPR
     int encoder_cpr = encoder_.config_.cpr;
     //controller_.anticogging_.cogging_map = (float*)malloc((encoder_cpr >> 2) * sizeof(float));
-    if (controller_.anticogging_.cogging_map != NULL) {
-        for (int i = 0; i < (encoder_cpr >> 2); i++) {
-            controller_.anticogging_.cogging_map[i] = 0.0f;
-        }
-    }
+    // if (controller_.config_.cogging_map != NULL) {
+    //     for (int i = 0; i < (encoder_cpr >> 3); i++) {
+    //         controller_.config_.cogging_map[i] = 0.0f;
+    //     }
+    // }
 
     // arm!
     motor_.arm();

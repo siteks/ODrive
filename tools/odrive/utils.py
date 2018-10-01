@@ -73,10 +73,6 @@ def start_liveplotter(get_var_callback):
             fig.canvas.draw()
             fig.canvas.start_event_loop(1/plot_rate)
 
-<<<<<<< HEAD
-    threading.Thread(target=fetch_data, daemon=True).start()
-    #threading.Thread(target=plot_data, daemon=True).start()
-=======
     fetch_t = threading.Thread(target=fetch_data)
     fetch_t.daemon = True
     fetch_t.start()
@@ -85,7 +81,6 @@ def start_liveplotter(get_var_callback):
     plot_t.daemon = True
     plot_t.start()
     
->>>>>>> be0cc9465570ce6461d71804e77c27335e46cd39
 
     plot_data()
     return cancellation_token;

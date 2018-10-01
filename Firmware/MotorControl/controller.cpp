@@ -4,13 +4,15 @@
 
 Controller::Controller(Config_t& config) :
     config_(config)
-{}
+{
+}
 
 void Controller::reset() {
     pos_setpoint_ = 0.0f;
     vel_setpoint_ = 0.0f;
     vel_integrator_current_ = 0.0f;
     current_setpoint_ = 0.0f;
+    calc_cogging_map();
 }
 
 //--------------------------------
@@ -55,9 +57,28 @@ void Controller::move_to_pos(float goal_point) {
 
 void Controller::start_anticogging_calibration() {
     // Ensure the cogging map was correctly allocated earlier and that the motor is capable of calibrating
-    if (anticogging_.cogging_map != NULL && axis_->error_ == Axis::ERROR_NONE) {
+    if (cogging_map != NULL && axis_->error_ == Axis::ERROR_NONE) {
         anticogging_.calib_anticogging = true;
     }
+}
+
+void Controller::calc_cogging_map()
+{
+    //arm_rfft_fast_f32
+    // Recreate the cogging map from the fft coefficients
+    //config_.use_anticogging = false;
+    clear_cogging_map();
+
+    for(int i = 0; i < Nc * 2; i++)
+        coeffs[i] = config_.fft[i];
+    for(int i = Nc * 2; i < N; i++)
+        coeffs[i] = 0;
+    
+    arm_rfft_fast_instance_f32 S;
+    arm_rfft_fast_init_f32(&S, 4096);
+    arm_rfft_fast_f32(&S, coeffs, cogging_map, 1);
+
+    valid_cogging_map = true;
 }
 
 /*
@@ -68,19 +89,19 @@ void Controller::start_anticogging_calibration() {
  * This holding current is added as a feedforward term in the control loop.
  */
 bool Controller::anticogging_calibration(float pos_estimate, float vel_estimate) {
-    if (anticogging_.calib_anticogging && anticogging_.cogging_map != NULL) {
-        float pos_err = (anticogging_.index << 2) - pos_estimate;
+    if (anticogging_.calib_anticogging) {
+        float pos_err = (anticogging_.index << 3) - pos_estimate;
         if (fabsf(pos_err) <= anticogging_.calib_pos_threshold &&
             fabsf(vel_estimate) < anticogging_.calib_vel_threshold) {
-            anticogging_.cogging_map[anticogging_.index++] = vel_integrator_current_;
+            cogging_map[anticogging_.index++] = vel_integrator_current_;
         }
-        if (anticogging_.index < (axis_->encoder_.config_.cpr >> 2)) { // TODO: remove the dependency on encoder CPR
-            set_pos_setpoint(anticogging_.index << 2, 0.0f, 0.0f);
+        if (anticogging_.index < (axis_->encoder_.config_.cpr >> 3)) { // TODO: remove the dependency on encoder CPR
+            set_pos_setpoint(anticogging_.index << 3, 0.0f, 0.0f);
             return false;
         } else {
             anticogging_.index = 0;
             set_pos_setpoint(0.0f, 0.0f, 0.0f);  // Send the motor home
-            anticogging_.use_anticogging = true;  // We're good to go, enable anti-cogging
+            config_.use_anticogging = true;  // We're good to go, enable anti-cogging
             anticogging_.calib_anticogging = false;
             return true;
         }
@@ -130,7 +151,7 @@ bool Controller::update(float pos_estimate, float vel_estimate, float* current_s
     float pos_err = pos_setpoint_ - pos_estimate;
     if (config_.control_mode >= CTRL_MODE_POSITION_CONTROL) {
         vel_des += config_.pos_gain * pos_err;
-        Iq += pos_int_current;
+        Iq += pos_integrator_current;
     }
 #endif
 
@@ -144,8 +165,8 @@ bool Controller::update(float pos_estimate, float vel_estimate, float* current_s
     // Anti-cogging is enabled after calibration
     // We get the current position and apply a current feed-forward
     // ensuring that we handle negative encoder positions properly (-1 == motor->encoder.encoder_cpr - 1)
-    if (anticogging_.use_anticogging) {
-        Iq += anticogging_.cogging_map[mod(static_cast<int>(anticogging_pos), axis_->encoder_.config_.cpr)];
+    if (config_.use_anticogging) {
+        Iq += cogging_map[mod(static_cast<int>(anticogging_pos) >> 3, axis_->encoder_.config_.cpr >> 3)];
     }
 
     float v_err = vel_des - vel_estimate;
@@ -176,10 +197,10 @@ bool Controller::update(float pos_estimate, float vel_estimate, float* current_s
         if (limited) {
             // TODO make decayfactor configurable
             vel_integrator_current_ *= 0.99f;
-            pos_int_current *= 0.99f;
+            pos_integrator_current *= 0.99f;
         } else {
             vel_integrator_current_ += (config_.vel_integrator_gain * current_meas_period) * v_err;
-            pos_int_current += config_.pos_int_gain * current_meas_period * pos_err;
+            pos_integrator_current += config_.pos_integrator_gain * current_meas_period * pos_err;
         }
     }
 

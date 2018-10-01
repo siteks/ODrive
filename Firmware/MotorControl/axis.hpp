@@ -167,7 +167,7 @@ public:
     State_t& current_state_ = task_chain_[0];
     uint32_t loop_counter_ = 0;
 
-#define PBUFSIZE 1300
+#define PBUFSIZE 2
     float phase_error[PBUFSIZE];
     float phase_error2[PBUFSIZE];
     float current_modulation[PBUFSIZE];

@@ -21,11 +21,19 @@ public:
         ControlMode_t control_mode = CTRL_MODE_POSITION_CONTROL;  //see: Motor_control_mode_t
         float pos_gain = 20.0f;  // [(counts/s) / counts]
         float vel_gain = 5.0f / 10000.0f;  // [A/(counts/s)]
-    float pos_int_gain = 0.0f;
+        float pos_integrator_gain = 0.0f;
         // float vel_gain = 5.0f / 200.0f, // [A/(rad/s)] <sensorless example>
         float vel_integrator_gain = 10.0f / 10000.0f;  // [A/(counts/s * s)]
         float vel_limit = 20000.0f;           // [counts/s]
+        bool use_anticogging = false;
+        // The default task needs more stack for this to work, expanded from 256 to 1024
+        // line 177 freertos.c
+        float fft[256];
     };
+    float cogging_map[4096];
+    static const int N = 4096;
+    static const int Nc = 128;
+    float coeffs[N];
 
     Controller(Config_t& config);
     void reset();
@@ -54,20 +62,43 @@ public:
 
     typedef struct {
         int index;
-        float *cogging_map;
-        bool use_anticogging;
+        //float cogging_map[4096];
+        //bool use_anticogging;
         bool calib_anticogging;
         float calib_pos_threshold;
         float calib_vel_threshold;
     } Anticogging_t;
     Anticogging_t anticogging_ = {
         .index = 0,
-        .cogging_map = nullptr,
-        .use_anticogging = false,
         .calib_anticogging = false,
-        .calib_pos_threshold = 200.0f,
-        .calib_vel_threshold = 2000.0f,
+        .calib_pos_threshold = 5.0f,
+        .calib_vel_threshold = 1000.0f,
     };
+    bool valid_cogging_map = false;
+    float read_fft_map(uint32_t index)
+    {
+        return config_.fft[index];
+    }
+    void write_fft_map(uint32_t index, float val)
+    {
+        config_.fft[index] = val;
+    }
+    void calc_cogging_map();
+    float read_cogging_map(uint32_t index)
+    {
+        return cogging_map[index];
+    }
+    void write_cogging_map(uint32_t index, float val)
+    {
+        cogging_map[index] = val;
+    }
+    void clear_cogging_map()
+    {
+        valid_cogging_map = false;
+        for (int i = 0; i < 4096; i++)
+            cogging_map[i] = 0;
+    }
+
 
     // variables exposed on protocol
     float pos_setpoint_ = 0.0f;
@@ -75,7 +106,9 @@ public:
     // float vel_setpoint = 800.0f; <sensorless example>
     float vel_integrator_current_ = 0.0f;  // [A]
     float current_setpoint_ = 0.0f;        // [A]
-    float pos_int_current = 0.0f;
+    float pos_integrator_current = 0.0f;
+    uint32_t cogging_map_ptr = 0; // protocol doesn't recognise int, needs to be uint32_t
+    
 
     uint32_t traj_start_loop_count_ = 0;
 
@@ -90,10 +123,23 @@ public:
                 make_protocol_property("control_mode", &config_.control_mode),
                 make_protocol_property("pos_gain", &config_.pos_gain),
                 make_protocol_property("vel_gain", &config_.vel_gain),
-                make_protocol_property("pos_int_gain", &config_.pos_int_gain),
+                make_protocol_property("pos_integrator_gain", &config_.pos_integrator_gain),
                 make_protocol_property("vel_integrator_gain", &config_.vel_integrator_gain),
-                make_protocol_property("vel_limit", &config_.vel_limit)
+                make_protocol_property("vel_limit", &config_.vel_limit),
+                make_protocol_property("use_anticogging", &config_.use_anticogging)
             ),
+            make_protocol_object("anticogging",
+                make_protocol_property("calib_anticogging", &anticogging_.calib_anticogging),
+                make_protocol_property("calib_pos_threshold", &anticogging_.calib_pos_threshold),
+                make_protocol_property("calib_vel_threshold", &anticogging_.calib_vel_threshold)
+            ),
+            make_protocol_property("valid_cogging_map", &valid_cogging_map),
+            make_protocol_function("read_fft_map", *this, &Controller::read_fft_map, "index"),
+            make_protocol_function("write_fft_map", *this, &Controller::write_fft_map, "index", "val"),
+            make_protocol_function("calc_cogging_map", *this, &Controller::calc_cogging_map),
+            make_protocol_function("read_cogging_map", *this, &Controller::read_cogging_map, "index"),
+            make_protocol_function("write_cogging_map", *this, &Controller::write_cogging_map, "index", "val"),
+            make_protocol_function("clear_cogging_map", *this, &Controller::clear_cogging_map),
             make_protocol_function("set_pos_setpoint", *this, &Controller::set_pos_setpoint,
                 "pos_setpoint", "vel_feed_forward", "current_feed_forward"),
             make_protocol_function("set_vel_setpoint", *this, &Controller::set_vel_setpoint,
