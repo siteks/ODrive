@@ -82,7 +82,9 @@ void Axis::set_step_dir_enabled(bool enable) {
         GPIO_InitTypeDef GPIO_InitStruct;
         GPIO_InitStruct.Pin = hw_config_.dir_pin;
         GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-        GPIO_InitStruct.Pull = GPIO_NOPULL;
+        GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+        HAL_GPIO_Init(hw_config_.dir_port, &GPIO_InitStruct);
+        GPIO_InitStruct.Pin = hw_config_.step_pin;
         HAL_GPIO_Init(hw_config_.dir_port, &GPIO_InitStruct);
 
         // Subscribe to rising edges of the step GPIO
