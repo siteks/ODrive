@@ -409,6 +409,9 @@ void Encoder::sample_now() {
             sincos_sample_c_ = (get_adc_voltage(GPIO_4_GPIO_Port, GPIO_4_Pin) / 3.3f) - 0.5f;
         } break;
 
+        case MODE_ABSOLUTE: {
+            // Do nothing
+        } break;
         default: {
            set_error(ERROR_UNSUPPORTED_ENCODER_MODE);
         } break;
@@ -419,7 +422,6 @@ bool Encoder::update() {
     // update internal encoder state.
     // Calculate encoder pll gains
     float pll_kp = 2.0f * config_.bandwidth;  // basic conversion to discrete time
-    float pll_ki = 0.25f * (pll_kp * pll_kp); // Critically damped
     int32_t delta_enc = 0;
     switch (config_.mode) {
         case MODE_INCREMENTAL: {

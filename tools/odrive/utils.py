@@ -153,36 +153,48 @@ def show_oscilloscope(odrv):
 def pe(o):
     def axis_errors(e):
         es = ''
-        if e & 0x001:   es += 'invalid_state         '
-        if e & 0x002:   es += 'under_voltage         '
-        if e & 0x004:   es += 'over_voltage          '
-        if e & 0x008:   es += 'current_meas_timeout  '
-        if e & 0x010:   es += 'brake_res_disarmed    '
-        if e & 0x020:   es += 'motor_disarmed        '
-        if e & 0x040:   es += 'motor_failed          '
-        if e & 0x080:   es += 'sensorless_est_failed '
-        if e & 0x100:   es += 'encoder_failed        '
-        if e & 0x200:   es += 'controller_failed     '
-        if e & 0x400:   es += 'pos_ctrl_during_sless '
+        if e & 0x001:   es += 'INVALID_STATE                 '
+        if e & 0x002:   es += 'DC_BUS_UNDER_VOLTAGE          '
+        if e & 0x004:   es += 'DC_BUS_OVER_VOLTAGE           '
+        if e & 0x008:   es += 'CURRENT_MEASUREMENT_TIMEOUT   '
+        if e & 0x010:   es += 'BRAKE_RESISTOR_DISARMED       '
+        if e & 0x020:   es += 'MOTOR_DISARMED                '
+        if e & 0x040:   es += 'MOTOR_FAILED                  '
+        if e & 0x080:   es += 'SENSORLESS_ESTIMATOR_FAILED   '
+        if e & 0x100:   es += 'ENCODER_FAILED                '
+        if e & 0x200:   es += 'CONTROLLER_FAILED             '
+        if e & 0x400:   es += 'POS_CTRL_DURING_SENSORLESS    '
         return es
     def motor_errors(e):
         es = ''
-        if e & 0x001:   es += 'phase_R_out_of_range '
-        if e & 0x002:   es += 'phase_L_out_of_range '
-        if e & 0x004:   es += 'adc_failed           '
-        if e & 0x008:   es += 'drv_failed           '
-        if e & 0x010:   es += 'ctrl_deadline_missed '
-        if e & 0x020:   es += 'not_implemented_type '
-        if e & 0x040:   es += 'brake_I_out_of_range '
-        if e & 0x080:   es += 'modulation_magnitude '
-        if e & 0x100:   es += 'brake_deadtime_viol  '
-        if e & 0x200:   es += 'unexpected_tmr_cback '
+        if e & 0x001:   es += 'PHASE_RESISTANCE_OUT_OF_RANGE '
+        if e & 0x002:   es += 'PHASE_INDuCTANCE_OUT_OF_RANGE '
+        if e & 0x004:   es += 'ADC_FAILED                    '
+        if e & 0x008:   es += 'DRV_FAILED                    '
+        if e & 0x010:   es += 'CONTROL_DEADLINE_MISSED       '
+        if e & 0x020:   es += 'NOT_IMPLEMENTED_MOTOR_TYPE    '
+        if e & 0x040:   es += 'BRAKE_CURRENT_OUT_OF_RANGE    '
+        if e & 0x080:   es += 'MODULATION_MAGNITUDE          '
+        if e & 0x100:   es += 'BRAKE_DEADTIME_VIOLATION      '
+        if e & 0x200:   es += 'UNEXPECTED_TIMER_CALLBACK     '
+        if e & 0x400:   es += 'CURRENT_SENSE_SATURATION      '
+        return es
+    def encoder_errors(e):
+        es = ''
+        if e & 0x01:    es += 'UNSTABLE_GAIN                 '
+        if e & 0x02:    es += 'CPR_OUT_OF_RANGE              '
+        if e & 0x04:    es += 'NO_RESPONSE                   '
+        if e & 0x08:    es += 'UNSUPPORTED_ENCODER_MODE      '
+        if e & 0x10:    es += 'ILLEGAL_HALL_STATE            ' 
+        if e & 0x20:    es += 'INDEX_NOT_FOUND_YET           '
         return es
 
-    print('axis0.error:      %04x %s' % (o.axis0.error, axis_errors(o.axis0.error)))
-    print('axis0.motor.error:%04x %s' % (o.axis0.motor.error, motor_errors(o.axis0.motor.error)))
-    print('axis1.error:      %04x %s' % (o.axis1.error, axis_errors(o.axis1.error)))
-    print('axis1.motor.error:%04x %s' % (o.axis1.motor.error, motor_errors(o.axis1.motor.error)))
+    print('axis0.error:        %04x %s' % (o.axis0.error, axis_errors(o.axis0.error)))
+    print('axis0.motor.error:  %04x %s' % (o.axis0.motor.error, motor_errors(o.axis0.motor.error)))
+    print('axis0.encoder.error:%04x %s' % (o.axis0.motor.error, encoder_errors(o.axis0.encoder.error)))
+    print('axis1.error:        %04x %s' % (o.axis1.error, axis_errors(o.axis1.error)))
+    print('axis1.motor.error:  %04x %s' % (o.axis1.motor.error, motor_errors(o.axis1.motor.error)))
+    print('axis1.encoder.error:%04x %s' % (o.axis1.motor.error, encoder_errors(o.axis1.encoder.error)))
     
 def rate_test(device):
     """

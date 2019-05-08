@@ -34,12 +34,11 @@
 //!
 //! (C) Copyright 2015, Texas Instruments, Inc.
 
-
 // **************************************************************************
 // the includes
 
-#include "assert.h"
 #include <math.h>
+#include "assert.h"
 #include "cmsis_os.h"
 
 // drivers
@@ -47,40 +46,35 @@
 
 #include "utils.h"
 
-
 // **************************************************************************
 // the defines
-
 
 // **************************************************************************
 // the globals
 
-
 // **************************************************************************
 // the function prototypes
 
-void DRV8323_enable(DRV8323_Handle handle)
-{
+void DRV8323_enable(DRV8323_Handle handle) {
+    //Enable driver
+    HAL_GPIO_WritePin(handle->EngpioHandle, handle->EngpioNumber, GPIO_PIN_SET);
 
-  //Enable driver
-  HAL_GPIO_WritePin(handle->EngpioHandle, handle->EngpioNumber, GPIO_PIN_SET);
+    //Wait for driver to come online
+    osDelay(10);
 
-  //Wait for driver to come online
-  osDelay(10);
+    // Make sure the Fault bit is not set during startup
+    while ((DRV8323_readSpi(handle, DRV8323_RegName_Status_1) & DRV8323_STATUS1_FAULT) != 0)
+        ;
 
-  // Make sure the Fault bit is not set during startup
-  while((DRV8323_readSpi(handle, DRV8323_RegName_Status_1) & DRV8323_STATUS1_FAULT) != 0);
+    // Wait for the DRV8323 registers to update
+    osDelay(1);
 
-  // Wait for the DRV8323 registers to update
-  osDelay(1);
-
-  return;
+    return;
 }
 
 // DRV8323_DcCalMode_e DRV8323_getDcCalMode(DRV8323_Handle handle,const DRV8323_ShuntAmpNumber_e ampNumber)
 // {
 //   uint16_t data;
-
 
 //   // read data
 //   data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
@@ -99,40 +93,29 @@ void DRV8323_enable(DRV8323_Handle handle)
 //   return((DRV8323_DcCalMode_e)data);
 // } // end of DRV8323_getDcCalMode() function
 
+DRV8323_FaultType_e DRV8323_getFaultType(DRV8323_Handle handle) {
+    DRV8323_Word_t readWord;
+    DRV8323_FaultType_e faultType = DRV8323_FaultType_NoFault;
 
-DRV8323_FaultType_e DRV8323_getFaultType(DRV8323_Handle handle)
-{
-  //DRV8323_Word_t      readWord;
-  DRV8323_FaultType_e faultType = DRV8323_FaultType_NoFault;
+    // read the data
+    readWord = DRV8323_readSpi(handle, DRV8323_RegName_Status_1);
 
+    if (readWord & DRV8323_STATUS1_FAULT) {
+        faultType = (DRV8323_FaultType_e)(readWord & DRV8323_FAULT_TYPE_MASK);
 
-  // read the data
-  //readWord = DRV8323_readSpi(handle,DRV8323_RegName_Status_1);
+        if (faultType == DRV8323_FaultType_NoFault) {
+            // read the data
+            readWord = DRV8323_readSpi(handle, DRV8323_RegName_Status_2);
+            faultType = (DRV8323_FaultType_e)((readWord & DRV8323_FAULT_TYPE_MASK) << 10);
+        }
+    }
 
-  // if(readWord & DRV8323_STATUS1_FAULT_BITS)
-  //   {
-  //     faultType = (DRV8323_FaultType_e)(readWord & DRV8323_FAULT_TYPE_MASK);
-
-  //     if(faultType == DRV8323_FaultType_NoFault)
-  //       {
-  //         // read the data
-  //         readWord = DRV8323_readSpi(handle,DRV8323_RegName_Status_2);
-
-  //         if(readWord & DRV8323_STATUS2_GVDD_OV_BITS)
-  //           {
-  //             faultType = DRV8323_FaultType_GVDD_OV;
-  //           }
-  //       }
-  //   }
-
-  return(faultType);
-} // end of DRV8323_getFaultType() function
-
+    return (faultType);
+}  // end of DRV8323_getFaultType() function
 
 // uint16_t DRV8323_getId(DRV8323_Handle handle)
 // {
 //   uint16_t data;
-
 
 //   // read data
 //   data = DRV8323_readSpi(handle,DRV8323_RegName_Status_2);
@@ -142,7 +125,6 @@ DRV8323_FaultType_e DRV8323_getFaultType(DRV8323_Handle handle)
 
 //   return(data);
 // } // end of DRV8323_getId() function
-
 
 // DRV8323_VdsLevel_e DRV8323_getOcLevel(DRV8323_Handle handle)
 // {
@@ -157,11 +139,9 @@ DRV8323_FaultType_e DRV8323_getFaultType(DRV8323_Handle handle)
 //   return((DRV8323_VdsLevel_e)data);
 // } // end of DRV8323_getOcLevel() function
 
-
 // DRV8323_OcMode_e DRV8323_getOcMode(DRV8323_Handle handle)
 // {
 //   uint16_t data;
-
 
 //   // read data
 //   data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
@@ -172,11 +152,9 @@ DRV8323_FaultType_e DRV8323_getFaultType(DRV8323_Handle handle)
 //   return((DRV8323_OcMode_e)data);
 // } // end of DRV8323_getOcMode() function
 
-
 // DRV8323_OcOffTimeMode_e DRV8323_getOcOffTimeMode(DRV8323_Handle handle)
 // {
 //   uint16_t data;
-
 
 //   // read data
 //   data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
@@ -187,11 +165,9 @@ DRV8323_FaultType_e DRV8323_getFaultType(DRV8323_Handle handle)
 //   return((DRV8323_OcOffTimeMode_e)data);
 // } // end of DRV8323_getOcOffTimeMode() function
 
-
 // DRV8323_OcTwMode_e DRV8323_getOcTwMode(DRV8323_Handle handle)
 // {
 //   uint16_t data;
-
 
 //   // read data
 //   data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
@@ -202,11 +178,9 @@ DRV8323_FaultType_e DRV8323_getFaultType(DRV8323_Handle handle)
 //   return((DRV8323_OcTwMode_e)data);
 // } // end of DRV8323_getOcTwMode() function
 
-
 // DRV8323_PeakCurrent_e DRV8323_getPeakCurrent(DRV8323_Handle handle)
 // {
 //   uint16_t data;
-
 
 //   // read data
 //   data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
@@ -217,11 +191,9 @@ DRV8323_FaultType_e DRV8323_getFaultType(DRV8323_Handle handle)
 //   return((DRV8323_PeakCurrent_e)data);
 // } // end of DRV8323_getPeakCurrent() function
 
-
 // DRV8323_PwmMode_e DRV8323_getPwmMode(DRV8323_Handle handle)
 // {
 //   uint16_t data;
-
 
 //   // read data
 //   data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
@@ -232,11 +204,9 @@ DRV8323_FaultType_e DRV8323_getFaultType(DRV8323_Handle handle)
 //   return((DRV8323_PwmMode_e)data);
 // } // end of DRV8323_getPwmMode() function
 
-
 // DRV8323_ShuntAmpGain_e DRV8323_getShuntAmpGain(DRV8323_Handle handle)
 // {
 //   uint16_t data;
-
 
 //   // read data
 //   data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
@@ -247,87 +217,70 @@ DRV8323_FaultType_e DRV8323_getFaultType(DRV8323_Handle handle)
 //   return((DRV8323_ShuntAmpGain_e)data);
 // } // end of DRV8323_getShuntAmpGain() function
 
+DRV8323_Handle DRV8323_init(void *pMemory, const size_t numBytes) {
+    DRV8323_Handle handle;
 
-DRV8323_Handle DRV8323_init(void *pMemory,const size_t numBytes)
-{
-  DRV8323_Handle handle;
+    if (numBytes < sizeof(DRV8323_Obj))
+        return ((DRV8323_Handle)NULL);
 
+    // assign the handle
+    handle = (DRV8323_Handle)pMemory;
 
-  if(numBytes < sizeof(DRV8323_Obj))
-    return((DRV8323_Handle)NULL);
+    DRV8323_resetRxTimeout(handle);
+    DRV8323_resetEnableTimeout(handle);
 
+    return (handle);
+}  // end of DRV8323_init() function
 
-  // assign the handle
-  handle = (DRV8323_Handle)pMemory;
+void DRV8323_setEnGpioHandle(DRV8323_Handle handle, GPIO_Handle gpioHandle) {
+    DRV8323_Obj *obj = (DRV8323_Obj *)handle;
 
-  DRV8323_resetRxTimeout(handle);
-  DRV8323_resetEnableTimeout(handle);
+    // initialize the gpio interface object
+    obj->EngpioHandle = gpioHandle;
 
+    return;
+}  // end of DRV8323_setGpioHandle() function
 
-  return(handle);
-} // end of DRV8323_init() function
+void DRV8323_setEnGpioNumber(DRV8323_Handle handle, GPIO_Number_e gpioNumber) {
+    DRV8323_Obj *obj = (DRV8323_Obj *)handle;
 
+    // initialize the gpio interface object
+    obj->EngpioNumber = gpioNumber;
 
-void DRV8323_setEnGpioHandle(DRV8323_Handle handle,GPIO_Handle gpioHandle)
-{
-  DRV8323_Obj *obj = (DRV8323_Obj *)handle;
+    return;
+}  // end of DRV8323_setGpioNumber() function
 
-  // initialize the gpio interface object
-  obj->EngpioHandle = gpioHandle;
+void DRV8323_setnCSGpioHandle(DRV8323_Handle handle, GPIO_Handle gpioHandle) {
+    DRV8323_Obj *obj = (DRV8323_Obj *)handle;
 
-  return;
-} // end of DRV8323_setGpioHandle() function
+    // initialize the gpio interface object
+    obj->nCSgpioHandle = gpioHandle;
 
+    return;
+}  // end of DRV8323_setGpioHandle() function
 
-void DRV8323_setEnGpioNumber(DRV8323_Handle handle,GPIO_Number_e gpioNumber)
-{
-  DRV8323_Obj *obj = (DRV8323_Obj *)handle;
+void DRV8323_setnCSGpioNumber(DRV8323_Handle handle, GPIO_Number_e gpioNumber) {
+    DRV8323_Obj *obj = (DRV8323_Obj *)handle;
 
-  // initialize the gpio interface object
-  obj->EngpioNumber = gpioNumber;
+    // initialize the gpio interface object
+    obj->nCSgpioNumber = gpioNumber;
 
-  return;
-} // end of DRV8323_setGpioNumber() function
+    return;
+}  // end of DRV8323_setGpioNumber() function
 
+void DRV8323_setSpiHandle(DRV8323_Handle handle, SPI_Handle spiHandle) {
+    DRV8323_Obj *obj = (DRV8323_Obj *)handle;
 
-void DRV8323_setnCSGpioHandle(DRV8323_Handle handle,GPIO_Handle gpioHandle)
-{
-  DRV8323_Obj *obj = (DRV8323_Obj *)handle;
+    // initialize the serial peripheral interface object
+    obj->spiHandle = spiHandle;
 
-  // initialize the gpio interface object
-  obj->nCSgpioHandle = gpioHandle;
-
-  return;
-} // end of DRV8323_setGpioHandle() function
-
-
-void DRV8323_setnCSGpioNumber(DRV8323_Handle handle,GPIO_Number_e gpioNumber)
-{
-  DRV8323_Obj *obj = (DRV8323_Obj *)handle;
-
-  // initialize the gpio interface object
-  obj->nCSgpioNumber = gpioNumber;
-
-  return;
-} // end of DRV8323_setGpioNumber() function
-
-
-void DRV8323_setSpiHandle(DRV8323_Handle handle,SPI_Handle spiHandle)
-{
-  DRV8323_Obj *obj = (DRV8323_Obj *)handle;
-
-  // initialize the serial peripheral interface object
-  obj->spiHandle = spiHandle;
-
-  return;
-} // end of DRV8323_setSpiHandle() function
-
+    return;
+}  // end of DRV8323_setSpiHandle() function
 
 // bool DRV8323_isFault(DRV8323_Handle handle)
 // {
 //   DRV8323_Word_t readWord;
 //   bool status=false;
-
 
 //   // read the data
 //   readWord = DRV8323_readSpi(handle,DRV8323_RegName_Status_1);
@@ -340,12 +293,10 @@ void DRV8323_setSpiHandle(DRV8323_Handle handle,SPI_Handle spiHandle)
 //   return(status);
 // } // end of DRV8323_isFault() function
 
-
 // bool DRV8323_isReset(DRV8323_Handle handle)
 // {
 //   DRV8323_Word_t readWord;
 //   bool status=false;
-
 
 //   // read the data
 //   readWord = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
@@ -358,48 +309,43 @@ void DRV8323_setSpiHandle(DRV8323_Handle handle,SPI_Handle spiHandle)
 //   return(status);
 // } // end of DRV8323_isReset() function
 
+uint16_t DRV8323_readSpi(DRV8323_Handle handle, const DRV8323_RegName_e regName) {
+    // Actuate chipselect
+    HAL_GPIO_WritePin(handle->nCSgpioHandle, handle->nCSgpioNumber, GPIO_PIN_RESET);
+    delay_us(1);
 
-uint16_t DRV8323_readSpi(DRV8323_Handle handle, const DRV8323_RegName_e regName)
-{
+    // Do blocking read
+    uint16_t zerobuff = 0;
+    uint16_t controlword = (uint16_t)DRV8323_buildCtrlWord(DRV8323_CtrlMode_Read, regName, 0);
+    uint16_t recbuff = 0xbeef;
+    HAL_SPI_Transmit(handle->spiHandle, (uint8_t *)(&controlword), 1, 1000);
 
-  // Actuate chipselect
-  HAL_GPIO_WritePin(handle->nCSgpioHandle, handle->nCSgpioNumber, GPIO_PIN_RESET);
-  delay_us(1);
+    // Datasheet says you don't have to pulse the nCS between transfers, (16 clocks should commit the transfer)
+    // but for some reason you actually need to pulse it.
+    // Actuate chipselect
+    HAL_GPIO_WritePin(handle->nCSgpioHandle, handle->nCSgpioNumber, GPIO_PIN_SET);
+    delay_us(1);
+    // Actuate chipselect
+    HAL_GPIO_WritePin(handle->nCSgpioHandle, handle->nCSgpioNumber, GPIO_PIN_RESET);
+    delay_us(1);
 
-  // Do blocking read
-  uint16_t zerobuff = 0;
-  uint16_t controlword = (uint16_t)DRV8323_buildCtrlWord(DRV8323_CtrlMode_Read, regName, 0);
-  uint16_t recbuff = 0xbeef;
-  HAL_SPI_Transmit(handle->spiHandle, (uint8_t*)(&controlword), 1, 1000);
+    HAL_SPI_TransmitReceive(handle->spiHandle, (uint8_t *)(&zerobuff), (uint8_t *)(&recbuff), 1, 1000);
+    delay_us(1);
 
-  // Datasheet says you don't have to pulse the nCS between transfers, (16 clocks should commit the transfer)
-  // but for some reason you actually need to pulse it.
-  // Actuate chipselect
-  HAL_GPIO_WritePin(handle->nCSgpioHandle, handle->nCSgpioNumber, GPIO_PIN_SET);
-  delay_us(1);
-  // Actuate chipselect
-  HAL_GPIO_WritePin(handle->nCSgpioHandle, handle->nCSgpioNumber, GPIO_PIN_RESET);
-  delay_us(1);
+    // Actuate chipselect
+    HAL_GPIO_WritePin(handle->nCSgpioHandle, handle->nCSgpioNumber, GPIO_PIN_SET);
+    delay_us(1);
 
-  HAL_SPI_TransmitReceive(handle->spiHandle, (uint8_t*)(&zerobuff), (uint8_t*)(&recbuff), 1, 1000);
-  delay_us(1);
+    assert(recbuff != 0xbeef);
 
-  // Actuate chipselect
-  HAL_GPIO_WritePin(handle->nCSgpioHandle, handle->nCSgpioNumber, GPIO_PIN_SET);
-  delay_us(1);
-
-  assert(recbuff != 0xbeef);
-
-  // sj hack
-  recbuff = 0;
-  return(recbuff & DRV8323_DATA_MASK);
+    // sj hack
+    recbuff = 0;
+    return (recbuff & DRV8323_DATA_MASK);
 }  // end of DRV8323_readSpi() function
-
 
 // void DRV8323_reset(DRV8323_Handle handle)
 // {
 //   uint16_t data;
-
 
 //   // read data
 //   data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
@@ -413,11 +359,9 @@ uint16_t DRV8323_readSpi(DRV8323_Handle handle, const DRV8323_RegName_e regName)
 //   return;
 // }  // end of DRV8323_reset() function
 
-  
 // void DRV8323_setDcCalMode(DRV8323_Handle handle,const DRV8323_ShuntAmpNumber_e ampNumber,const DRV8323_DcCalMode_e mode)
 // {
 //   uint16_t data;
-
 
 //   // read data
 //   data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
@@ -442,53 +386,45 @@ uint16_t DRV8323_readSpi(DRV8323_Handle handle, const DRV8323_RegName_e regName)
 //   return;
 // } // end of DRV8323_setDcCalMode() function
 
+void DRV8323_setOcLevel(DRV8323_Handle handle, const DRV8323_VdsLevel_e VdsLevel) {
+    // uint16_t data;
 
-void DRV8323_setOcLevel(DRV8323_Handle handle,const DRV8323_VdsLevel_e VdsLevel)
-{
-  // uint16_t data;
+    // // read data
+    // data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
 
+    // // clear the bits
+    // data &= (~DRV8323_CTRL1_OC_ADJ_SET_BITS);
 
-  // // read data
-  // data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
+    // // set the bits
+    // data |= VdsLevel;
 
-  // // clear the bits
-  // data &= (~DRV8323_CTRL1_OC_ADJ_SET_BITS);
+    // // write the data
+    // DRV8323_writeSpi(handle,DRV8323_RegName_Control_1,data);
 
-  // // set the bits
-  // data |= VdsLevel;
+    // return;
+}  // end of DRV8323_setOcLevel() function
 
-  // // write the data
-  // DRV8323_writeSpi(handle,DRV8323_RegName_Control_1,data);
+void DRV8323_setOcMode(DRV8323_Handle handle, const DRV8323_OcMode_e mode) {
+    // uint16_t data;
 
-  // return;
-} // end of DRV8323_setOcLevel() function
+    // // read data
+    // data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
 
+    // // clear the bits
+    // data &= (~DRV8323_CTRL1_OC_MODE_BITS);
 
-void DRV8323_setOcMode(DRV8323_Handle handle,const DRV8323_OcMode_e mode)
-{
-  // uint16_t data;
+    // // set the bits
+    // data |= mode;
 
+    // // write the data
+    // DRV8323_writeSpi(handle,DRV8323_RegName_Control_1,data);
 
-  // // read data
-  // data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
-
-  // // clear the bits
-  // data &= (~DRV8323_CTRL1_OC_MODE_BITS);
-
-  // // set the bits
-  // data |= mode;
-
-  // // write the data
-  // DRV8323_writeSpi(handle,DRV8323_RegName_Control_1,data);
-
-  // return;
-} // end of DRV8323_setOcMode() function
-
+    // return;
+}  // end of DRV8323_setOcMode() function
 
 // void DRV8323_setOcOffTimeMode(DRV8323_Handle handle,const DRV8323_OcOffTimeMode_e mode)
 // {
 //   // uint16_t data;
-
 
 //   // // read data
 //   // data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
@@ -505,111 +441,93 @@ void DRV8323_setOcMode(DRV8323_Handle handle,const DRV8323_OcMode_e mode)
 //   // return;
 // } // end of DRV8323_setOcOffTimeMode() function
 
+void DRV8323_setOcTwMode(DRV8323_Handle handle, const DRV8323_OcTwMode_e mode) {
+    // uint16_t data;
 
-void DRV8323_setOcTwMode(DRV8323_Handle handle,const DRV8323_OcTwMode_e mode)
-{
-  // uint16_t data;
+    // // read data
+    // data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
 
+    // // clear the bits
+    // data &= (~DRV8323_CTRL2_OCTW_SET_BITS);
 
-  // // read data
-  // data = DRV8323_readSpi(handle,DRV8323_RegName_Control_2);
+    // // set the bits
+    // data |= mode;
 
-  // // clear the bits
-  // data &= (~DRV8323_CTRL2_OCTW_SET_BITS);
+    // // write the data
+    // DRV8323_writeSpi(handle,DRV8323_RegName_Control_2,data);
 
-  // // set the bits
-  // data |= mode;
+    // return;
+}  // end of DRV8323_setOcTwMode() function
 
-  // // write the data
-  // DRV8323_writeSpi(handle,DRV8323_RegName_Control_2,data);
+void DRV8323_setPeakCurrent(DRV8323_Handle handle, const DRV8323_PeakCurrent_e peakCurrent) {
+    // uint16_t data;
 
-  // return;
-} // end of DRV8323_setOcTwMode() function
+    // // read data
+    // data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
 
+    // // clear the bits
+    // data &= (~DRV8323_CTRL1_GATE_CURRENT_BITS);
 
-void DRV8323_setPeakCurrent(DRV8323_Handle handle,const DRV8323_PeakCurrent_e peakCurrent)
-{
-  // uint16_t data;
+    // // set the bits
+    // data |= peakCurrent;
 
+    // // write the data
+    // DRV8323_writeSpi(handle,DRV8323_RegName_Control_1,data);
 
-  // // read data
-  // data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
+    // return;
+}  // end of DRV8323_setPeakCurrent() function
 
-  // // clear the bits
-  // data &= (~DRV8323_CTRL1_GATE_CURRENT_BITS);
+void DRV8323_setPwmMode(DRV8323_Handle handle, const DRV8323_PwmMode_e mode) {
+    // uint16_t data;
 
-  // // set the bits
-  // data |= peakCurrent;
+    // // read data
+    // data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
 
-  // // write the data
-  // DRV8323_writeSpi(handle,DRV8323_RegName_Control_1,data);
+    // // clear the bits
+    // data &= (~DRV8323_CTRL1_PWM_MODE_BITS);
 
-  // return;
-} // end of DRV8323_setPeakCurrent() function
+    // // set the bits
+    // data |= mode;
 
+    // // write the data
+    // DRV8323_writeSpi(handle,DRV8323_RegName_Control_1,data);
 
-void DRV8323_setPwmMode(DRV8323_Handle handle,const DRV8323_PwmMode_e mode)
-{
-  // uint16_t data;
+    // return;
+}  // end of DRV8323_setPwmMode() function
 
+void DRV8323_setShuntAmpGain(DRV8323_Handle handle, const DRV8323_ShuntAmpGain_e gain) {
+    uint16_t data;
 
-  // // read data
-  // data = DRV8323_readSpi(handle,DRV8323_RegName_Control_1);
+    // read data
+    data = DRV8323_readSpi(handle, DRV8323_RegName_CSA_Control);
 
-  // // clear the bits
-  // data &= (~DRV8323_CTRL1_PWM_MODE_BITS);
+    // clear the bits
+    data &= (~DRV8323_CSACTRL_CSA_GAIN);
 
-  // // set the bits
-  // data |= mode;
+    // set the bits
+    data |= gain;
 
-  // // write the data
-  // DRV8323_writeSpi(handle,DRV8323_RegName_Control_1,data);
+    // write the data
+    DRV8323_writeSpi(handle, DRV8323_RegName_CSA_Control, data);
 
-  // return;
-} // end of DRV8323_setPwmMode() function
+    return;
+}  // end of DRV8323_setShuntAmpGain() function
 
+void DRV8323_writeSpi(DRV8323_Handle handle, const DRV8323_RegName_e regName, const uint16_t data) {
+    // Actuate chipselect
+    HAL_GPIO_WritePin(handle->nCSgpioHandle, handle->nCSgpioNumber, GPIO_PIN_RESET);
+    delay_us(1);
 
-void DRV8323_setShuntAmpGain(DRV8323_Handle handle,const DRV8323_ShuntAmpGain_e gain)
-{
-  uint16_t data;
+    // Do blocking write
+    uint16_t controlword = (uint16_t)DRV8323_buildCtrlWord(DRV8323_CtrlMode_Write, regName, data);
+    HAL_SPI_Transmit(handle->spiHandle, (uint8_t *)(&controlword), 1, 1000);
+    delay_us(1);
 
+    // Actuate chipselect
+    HAL_GPIO_WritePin(handle->nCSgpioHandle, handle->nCSgpioNumber, GPIO_PIN_SET);
+    delay_us(1);
 
-  // read data
-  data = DRV8323_readSpi(handle,DRV8323_RegName_CSA_Control);
-
-  // clear the bits
-  data &= (~DRV8323_CSACTRL_CSA_GAIN);
-
-  // set the bits
-  data |= gain;
-
-  // write the data
-  DRV8323_writeSpi(handle, DRV8323_RegName_CSA_Control, data);
-
-  return;
-} // end of DRV8323_setShuntAmpGain() function
-
-
-void DRV8323_writeSpi(DRV8323_Handle handle, const DRV8323_RegName_e regName,const uint16_t data)
-{
-  // Actuate chipselect
-  HAL_GPIO_WritePin(handle->nCSgpioHandle, handle->nCSgpioNumber, GPIO_PIN_RESET);
-  delay_us(1);
-
-  // Do blocking write
-  uint16_t controlword = (uint16_t)DRV8323_buildCtrlWord(DRV8323_CtrlMode_Write, regName, data);
-  HAL_SPI_Transmit(handle->spiHandle, (uint8_t*)(&controlword), 1, 1000);
-  delay_us(1);
-
-  // Actuate chipselect
-  HAL_GPIO_WritePin(handle->nCSgpioHandle, handle->nCSgpioNumber, GPIO_PIN_SET);
-  delay_us(1);
-
-  return;
+    return;
 }  // end of DRV8323_writeSpi() function
-
-
-
-
 
 // end of file

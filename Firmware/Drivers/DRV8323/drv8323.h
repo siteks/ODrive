@@ -99,7 +99,7 @@ extern "C" {
 #define DRV8323_STATUS1_OTSD            (1 << 6)
 #define DRV8323_STATUS1_UVLO            (1 << 7)
 #define DRV8323_STATUS1_GDF             (1 << 8)
-#define DRV8323_STATUS1_OVDS_OCP        (1 << 9)
+#define DRV8323_STATUS1_VDS_OCP         (1 << 9)
 #define DRV8323_STATUS1_FAULT           (1 << 10)
 
 #define DRV8323_STATUS2_VGS_LC          (1 << 0)
@@ -188,6 +188,17 @@ typedef enum
   DRV8323_FaultType_UVLO      = (1 << 7),  //!< Undervoltage lockout fault
   DRV8323_FaultType_GDF       = (1 << 8),  //!< Gate drive fault
   DRV8323_FaultType_VCS_OCP   = (1 << 9),  //!< VDS overcurrent fault
+  DRV8323_FaultType_VGS_LC    = (1 << 10),
+  DRV8323_FaultType_VGS_HC    = (1 << 11),
+  DRV8323_FaultType_VGS_LB    = (1 << 12),
+  DRV8323_FaultType_VGS_HB    = (1 << 13),
+  DRV8323_FaultType_VGS_LA    = (1 << 14),
+  DRV8323_FaultType_VGS_HA    = (1 << 15),
+  DRV8323_FaultType_CPUV      = (1 << 16),
+  DRV8323_FaultType_OTW       = (1 << 17),
+  DRV8323_FaultType_SC_OC     = (1 << 18),
+  DRV8323_FaultType_SB_OC     = (1 << 19),
+  DRV8323_FaultType_SA_OC     = (1 << 20)
 } DRV8323_FaultType_e;
 
 

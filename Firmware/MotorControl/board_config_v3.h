@@ -98,10 +98,10 @@ const BoardHardwareConfig_t hw_configs[2] = { {
         .timer = &htim3,
         .sck_port = M0_ENC_Z_GPIO_Port,
         .sck_pin = M0_ENC_Z_Pin,
-        .csq_port = M0_ENC_A_GPIO_Port,
-        .csq_pin = M0_ENC_A_Pin,
-        .data_port = M0_ENC_B_GPIO_Port,
-        .data_pin = M0_ENC_B_Pin,
+        .csq_port = M0_ENC_B_GPIO_Port,
+        .csq_pin = M0_ENC_B_Pin,
+        .data_port = M0_ENC_A_GPIO_Port,
+        .data_pin = M0_ENC_A_Pin,
     },
 #else
     .encoder_config = {
@@ -149,10 +149,10 @@ const BoardHardwareConfig_t hw_configs[2] = { {
         .timer = &htim4,
         .sck_port = M1_ENC_Z_GPIO_Port,
         .sck_pin = M1_ENC_Z_Pin,
-        .csq_port = M1_ENC_A_GPIO_Port,
-        .csq_pin = M1_ENC_A_Pin,
-        .data_port = M1_ENC_B_GPIO_Port,
-        .data_pin = M1_ENC_B_Pin,
+        .csq_port = M1_ENC_B_GPIO_Port,
+        .csq_pin = M1_ENC_B_Pin,
+        .data_port = M1_ENC_A_GPIO_Port,
+        .data_pin = M1_ENC_A_Pin,
     },
 #else
     .encoder_config = {
