@@ -1,10 +1,68 @@
 # Unreleased Features
 Please add a note of your changes below this heading if you make a Pull Request.
 
-# Unreleased
+### Added
+* A release target for ODrive v3.6
+* Communication watchdog feature.
+* `encoder.set_linear_count(count)` function.
+* Configurable encoder offset calibration distance and speed:`calib_scan_distance` and `calib_scan_omega`
+* Encoder offset calibration debug variable `calib_scan_response`
+* Lock-in drive feature
+* Script to enable using a hall signal as index edge.
 
+### Changed
+* Encoder index search now based on the new lock-in drive feature
+
+### Fixed
+* Encoder index interrupts now disabled when not searching
+
+# Releases
+## [0.4.8] - 2019-02-25
+### Added
+* `dump_errors()` utility function in odrivetool to dump, decode and optionally clear errors.
+* `f` command to ascii protocol to get encoder position and velocity feedback.
+* `q` command to ascii protocol. It is like the old `p` command, but velocity and current mean limits, not feed-forward.
+* `ss`, `se`, `sr` commands to ascii protocol, for save config, erase config and reboot.
+* `move_incremental` function for relative trajectory moves.
+* `encoder.config.ignore_illegal_hall_state` option.
+* `encoder.config.enable_phase_interpolation` option. Setting to false may reduce jerky pulsations at low speed when using hall sensor feedback.
+* Analog input. Used the same way as the PWM input mappings.
+* Voltage limit soft clamping instead of ERROR_MODULATION_MAGNITUDE in gimbal motor closed loop.
+* Thermal current limit with linear derating.
+
+### Changed
+* Unified lockin drive modes. Current for index searching and encoder offset calibration now moved to axis.lockin.current.
+
+### Fixed
+* Added required 1.5 cycle phase shift between ADC and PWM, lack thereof caused unstable current controller at high eRPM.
+
+## [0.4.7] - 2018-11-28
+### Added
+* Overspeed fault
+* Current sense saturation fault.
+* Suppress startup transients by sampling encoder estimate into position setpoint when entering closed loop control.
+* Make step dir gpio pins configurable.
+* Configuration variable `encoder.config.zero_count_on_find_idx`, true by default. Set to false to leave the initial encoder count to be where the axis was at boot.
+* Circular position setpoint mode: position setpoints wrapped [0, cpr). Useful for infinite incremental position control.
+* Velocity setpoint ramping. Use velocity control mode, and set `controller.vel_ramp_enable` to true. This will ramp `controller.vel_setpoint` towards `controller.vel_ramp_target` at a ramp rate of `controller.config.vel_ramp_rate`.
+
+### Changed
+* Increased switching frequency from around 8kHz to 24kHz. Control loops still run at 8kHz.
+* Renamed `axis.enable_step_dir` to `axis.step_dir_active`
+* New process for working with STM32CubeMX.
+
+### Fixed
+* Would get ERROR_CONTROL_DEADLINE_MISSED along with every ERROR_PHASE_RESISTANCE_OUT_OF_RANGE.
+* ODrive tool can now run interactive nested scripts with "%run -i script.py"
+
+## [0.4.6] - 2018-10-07
+### Fixed
+* Broken printing of floats on ascii protocol
+
+## [0.4.5] - 2018-10-06
 ### Added
 * **Trapezoidal Trajectory Planner**
+* Hook to execute protocol property written callback
 * -Wdouble-promotion warning to compilation
 
 ### Changed
@@ -13,8 +71,16 @@ Please add a note of your changes below this heading if you make a Pull Request.
   * `TimeoutError` isn't defined, but it makes for more readable code, so I defined it as an OSError subclass.
   * `ModuleNotFoundError` is replaced by the older ImportError.
   * Print function imported from future
+* Using new hooks to calculate:
+  * `motor.config.current_control_bandwidth`
+    * This deprecates `motor.set_current_control_bandwidth()`
+  * `encoder.config.bandwidth`
+* Default value for `motor.resistance_calib_max_voltage` changed to 2.0
 
-# Releases
+### Fixed
+* An issue where the axis state machine would jump in and out of idle when there is an error
+* There is a [bug](https://github.com/ARM-software/CMSIS_5/issues/267) in the arm fast math library, which gives spikes in the output of arm_cos_f32 for input values close to -pi/2. We fixed the bug locally, and hence are using "our_arm_cos_f32".
+
 ## [0.4.4] - 2018-09-18
 ### Fixed
 * Serious reliability issue with USB communication where packets on Native and the CDC interface would collide with each other.

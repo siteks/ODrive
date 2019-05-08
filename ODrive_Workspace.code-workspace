@@ -11,6 +11,16 @@
 		}
 	],
 	"settings": {
+
+		"c-cpp-flylint.cppcheck.includePaths": [
+			"${workspaceRoot}",
+			"${workspaceRoot}/fibre/cpp/include/fibre",
+			"${workspaceRoot}/communication",
+			"${workspaceRoot}/MotorControl",
+		],
+		"c-cpp-flylint.cppcheck.platform": "avr8",
+		"c-cpp-flylint.cppcheck.standard": ["c99","c++14"],
+
 		"files.associations": {
 			"memory": "cpp",
 			"utility": "cpp",
@@ -45,12 +55,16 @@
 			"chrono": "cpp",
 			"condition_variable": "cpp",
 			"future": "cpp",
+<<<<<<< HEAD
 			"__bit_reference": "cpp",
 			"__functional_base": "cpp",
 			"atomic": "cpp",
 			"bitset": "cpp",
 			"iterator": "cpp",
 			"ratio": "cpp"
+=======
+			"arm_math.h": "c"
+>>>>>>> upstream/devel
 		}
 	}
 }

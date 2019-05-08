@@ -78,8 +78,12 @@ def launch_shell(args, logger, app_shutdown_token):
 
     interactive_variables = {
         'start_liveplotter': start_liveplotter,
+<<<<<<< HEAD
         'show_oscilloscope':show_oscilloscope,
         'pe':pe
+=======
+        'dump_errors': dump_errors
+>>>>>>> upstream/devel
     }
 
     # Expose all enums from odrive.enums

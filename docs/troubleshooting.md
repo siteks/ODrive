@@ -14,31 +14,20 @@ Table of Contents:
 <!-- /TOC -->
 
 ## Error codes
-If your ODrive is not working as expected, run `odrivetool` and type `hex(<axis>.error)` <kbd>Enter</kbd> where `<axis>` is the axis that isn't working. This will display a [hexadecimal](https://en.wikipedia.org/wiki/Hexadecimal) representation of the error code. Each bit represents one error flag.
+If your ODrive is not working as expected, run `odrivetool` and type `dump_errors(odrv0)` <kbd>Enter</kbd>. This will dump a list of all the errors that are present. To also clear all the errors, you can run `dump_errors(odrv0, True)`.
 
-<details><summary markdown="span">Example</summary><div markdown="block">
-Say you got this error output:
-```python
-In [1]: hex(odrv0.axis0.error)
-Out[1]: '0x6'
-```
-
-Written in binary, the number `0x6` corresponds to `110`, that means bits 1 and 2 are set (counting starts at 0).
-Looking at the reference below, this means that both `ERROR_DC_BUS_UNDER_VOLTAGE` and `ERROR_DC_BUS_OVER_VOLTAGE` occurred.
-</div></details>
-
-The axis error may say that some other component has failed. Say it reports `ERROR_ENCODER_FAILED`, then you need to go check the encoder error: `hex(<axis>.encoder.error)`.
-
+The following sections will give some guidance on the most common errors. You may also check the code for the full list of errors:
 * Axis error flags defined [here](../Firmware/MotorControl/axis.hpp).
 * Motor error flags defined [here](../Firmware/MotorControl/motor.hpp).
 * Encoder error flags defined [here](../Firmware/MotorControl/encoder.hpp).
+* Controller error flags defined [here](../Firmware/MotorControl/controller.hpp).
 * Sensorless estimator error flags defined [here](../Firmware/MotorControl/sensorless_estimator.hpp).
 
 ## Common Axis Errors 
 
 * `ERROR_INVALID_STATE = 0x01`
 
-Typically returned along with another error. Resolve that error and then reboot using `odrv0.reboot()` or remoivng power, waiting 5 seconds and restoring power to return to normal operating. 
+You tried to run a state before you are allowed to. Typically you tried to run encoder calibration or closed loop control before the motor was calibrated, or you tried to run closed loop control before the encoder was calibrated.
 
 * `ERROR_DC_BUS_UNDER_VOLTAGE = 0x02`
 
@@ -48,9 +37,9 @@ You can monitor your PUS voltage using liveplotter in odrive tool by entering `s
 
 * `ERROR_DC_BUS_OVER_VOLTAGE = 0x04`
 
-Confirm that you have a break resistor of the correct value connected securly and that `odrv0.config.brake_resistance` is set to the value of your break resistor. 
+Confirm that you have a brake resistor of the correct value connected securly and that `odrv0.config.brake_resistance` is set to the value of your brake resistor. 
 
-You can monitor your PUS voltage using liveplotter in odrive tool by entering `start_liveplotter(lambda: [odrv0.vbus_voltage])`. If during a move you see the voltage rise above your PSU's nominal set voltage then you have your break resistance set too low. This may happen if you are using long wires or small gauge wires to connect your break resistor to your odrive which will added extra resistance. This extra resistance needs to be accounted for to prevent this voltage spike. If you have checked all your connections you can also try increasing your break resistance by ~ 0.01 Ohm at a time to a maximum of 0.05 greater than your break resistor value.
+You can monitor your PUS voltage using liveplotter in odrive tool by entering `start_liveplotter(lambda: [odrv0.vbus_voltage])`. If during a move you see the voltage rise above your PSU's nominal set voltage then you have your brake resistance set too low. This may happen if you are using long wires or small gauge wires to connect your brake resistor to your odrive which will added extra resistance. This extra resistance needs to be accounted for to prevent this voltage spike. If you have checked all your connections you can also try increasing your brake resistance by ~ 0.01 Ohm at a time to a maximum of 0.05 greater than your brake resistor value.
 
 ## Common Motor Errors 
 
@@ -66,7 +55,13 @@ Out[2]: 1.408751450071577e-05
 In [3]: odrv0.axis0.motor.config.phase_resistance
 Out[3]: 0.029788672924041748
 ```
-Some motors will have a considerably different phase resistance and inductance than this. For example, gimbal motors, some small motors (e.g. < 10A peak current). If you think this applies to you try increasing `odrv0.axis0.motor.config.resistance_calib_max_voltage` from its default value of 1 using odrive tool and repeat the motor calibration process. If your motor has a small peak current draw (e.g. < 20A) you can also try decreasing `odrv0.axis0.motor.config.calibration_current` from its default value of 10A.
+Some motors will have a considerably different phase resistance and inductance than this. For example, gimbal motors, some small motors (e.g. < 10A peak current). If you think this applies to you try increasing `odrv0.axis0.motor.config.resistance_calib_max_voltage` from its default value of 1 using odrivetool and repeat the motor calibration process. If your motor has a small peak current draw (e.g. < 20A) you can also try decreasing `odrv0.axis0.motor.config.calibration_current` from its default value of 10A.
+
+In general, you need
+```text
+resistance_calib_max_voltage > calibration_current * phase_resistance
+resistance_calib_max_voltage < 0.5 * vbus_voltage
+```
 
 * `ERROR_DRV_FAULT = 0x0008`
 
@@ -78,6 +73,12 @@ The conjecture is that the high switching current creates large ripples in the
 power supply of the DRV8301 gate driver chips, thus tripping its under-voltage fault detection. 
 
 To resolve this issue you can limit the M0 current to 40A. The lowest current at which the DRV fault was observed is 45A on one test motor and 50A on another test motor. Refer to [this post](https://discourse.odriverobotics.com/t/drv-fault-on-odrive-v3-4/558) for instructions for a hardware fix.
+
+* `ERROR_MODULATION_MAGNITUDE = 0x0080`
+
+The bus voltage was insufficent to push the requested current through the motor. Reduce `motor.config.calibration_current` and/or `motor.config.current_lim`, for errors at calibration-time and closed loop control respectively.
+
+For gimbal motors, it is recommended to set the calibration_current and current_lim to half your bus voltage, or less.
 
 ## Common Encoder Errors
 

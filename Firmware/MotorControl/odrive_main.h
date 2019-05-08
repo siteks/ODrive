@@ -1,6 +1,13 @@
 #ifndef __ODRIVE_MAIN_H
 #define __ODRIVE_MAIN_H
 
+// Note on central include scheme by Samuel:
+// there are circular dependencies between some of the header files,
+// e.g. the Motor header needs a forward declaration of Axis and vice versa
+// so I figured I'd make one main header that takes care of
+// the forward declarations and right ordering
+// btw this pattern is not so uncommon, for instance IIRC the stdlib uses it too
+
 #ifdef __cplusplus
 #include <fibre/protocol.hpp>
 extern "C" {
@@ -75,11 +82,12 @@ struct BoardConfig_t {
     float brake_resistance = 0.47f;     // [ohm]
 #endif
     float dc_bus_undervoltage_trip_level = 8.0f;                        //<! [V] minimum voltage below which the motor stops operating
-    float dc_bus_overvoltage_trip_level = 1.08f * HW_VERSION_VOLTAGE;   //<! [V] maximum voltage above which the motor stops operating.
+    float dc_bus_overvoltage_trip_level = 1.07f * HW_VERSION_VOLTAGE;   //<! [V] maximum voltage above which the motor stops operating.
                                                                         //<! This protects against cases in which the power supply fails to dissipate
                                                                         //<! the brake power if the brake resistor is disabled.
                                                                         //<! The default is 26V for the 24V board version and 52V for the 48V board version.
     PWMMapping_t pwm_mappings[GPIO_COUNT];
+    PWMMapping_t analog_mappings[GPIO_COUNT];
 };
 extern BoardConfig_t board_config;
 extern bool user_config_loaded_;
