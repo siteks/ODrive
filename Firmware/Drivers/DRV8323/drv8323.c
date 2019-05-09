@@ -106,7 +106,7 @@ DRV8323_FaultType_e DRV8323_getFaultType(DRV8323_Handle handle) {
         if (faultType == DRV8323_FaultType_NoFault) {
             // read the data
             readWord = DRV8323_readSpi(handle, DRV8323_RegName_Status_2);
-            faultType = (DRV8323_FaultType_e)((readWord & DRV8323_FAULT_TYPE_MASK) << 10);
+            faultType = (DRV8323_FaultType_e)((readWord & DRV8323_FAULT_TYPE_MASK) | (1<<11));
         }
     }
 
