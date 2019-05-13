@@ -102,11 +102,30 @@ void Motor::DRV8323_setup() {
     // Set trip level
     current_control_.overcurrent_trip_level = (kTripMargin / kMargin) * current_control_.max_allowed_current;
 
+    if (gate_driver_config_.nCS_pin == M1_nCS_Pin)
+    {
+        // Don't talk to non-existant driver, it will fail
+        osDelay(100);
+        return;
+    }
     // We don't really need to do this local register stuff, all that is done
     // in this setup is to set the current amp gains
     DRV8323_enable(&gate_driver_);
+    DRV8323_writeSpi(&gate_driver_, DRV8323_RegName_Gatedrive_HS, DRV8323_Idrivep_170mA | DRV8323_Idriven_280mA);
+    DRV8323_writeSpi(&gate_driver_, DRV8323_RegName_Gatedrive_LS, DRV8323_Idrivep_170mA | DRV8323_Idriven_280mA);
     DRV8323_setShuntAmpGain(&gate_driver_, gain_snap_down->second);
 
+
+    volatile uint16_t data[7];
+    data[0] = DRV8323_readSpi(&gate_driver_, DRV8323_RegName_Status_1);
+    data[1] = DRV8323_readSpi(&gate_driver_, DRV8323_RegName_Status_2);
+    data[2] = DRV8323_readSpi(&gate_driver_, DRV8323_RegName_Drive_control);
+    data[3] = DRV8323_readSpi(&gate_driver_, DRV8323_RegName_Gatedrive_HS);
+    data[4] = DRV8323_readSpi(&gate_driver_, DRV8323_RegName_Gatedrive_LS);
+    data[5] = DRV8323_readSpi(&gate_driver_, DRV8323_RegName_OCP_Control);
+    data[6] = DRV8323_readSpi(&gate_driver_, DRV8323_RegName_CSA_Control);
+
+    return;
 }
 #else
 void Motor::DRV8301_setup() {

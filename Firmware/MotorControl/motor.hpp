@@ -191,11 +191,7 @@ public:
         .overcurrent_trip_level = 0.0f,
     };
 
-#if SDRIVE
-#else
-    DRV8301_FaultType_e drv_fault_ = DRV8301_FaultType_NoFault;
-    DRV_SPI_8301_Vars_t gate_driver_regs_; //Local view of DRV registers (initialized by DRV8301_setup)
-#endif
+
     float thermal_current_lim_ = 10.0f;  //[A]
 
     // Communication protocol definitions

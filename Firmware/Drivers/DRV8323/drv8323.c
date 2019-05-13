@@ -62,9 +62,21 @@ void DRV8323_enable(DRV8323_Handle handle) {
     //Wait for driver to come online
     osDelay(10);
 
+
+    volatile uint16_t data[7];
+    data[0] = DRV8323_readSpi(handle, DRV8323_RegName_Status_1);
+    data[1] = DRV8323_readSpi(handle, DRV8323_RegName_Status_2);
+    data[2] = DRV8323_readSpi(handle, DRV8323_RegName_Drive_control);
+    data[3] = DRV8323_readSpi(handle, DRV8323_RegName_Gatedrive_HS);
+    data[4] = DRV8323_readSpi(handle, DRV8323_RegName_Gatedrive_LS);
+    data[5] = DRV8323_readSpi(handle, DRV8323_RegName_OCP_Control);
+    data[6] = DRV8323_readSpi(handle, DRV8323_RegName_CSA_Control);
+
     // Make sure the Fault bit is not set during startup
-    while ((DRV8323_readSpi(handle, DRV8323_RegName_Status_1) & DRV8323_STATUS1_FAULT) != 0)
-        ;
+    while ((data[0] = DRV8323_readSpi(handle, DRV8323_RegName_Status_1) & DRV8323_STATUS1_FAULT) != 0)
+    {
+        data[1] = DRV8323_readSpi(handle, DRV8323_RegName_Status_2); 
+    }
 
     // Wait for the DRV8323 registers to update
     osDelay(1);
@@ -318,17 +330,6 @@ uint16_t DRV8323_readSpi(DRV8323_Handle handle, const DRV8323_RegName_e regName)
     uint16_t zerobuff = 0;
     uint16_t controlword = (uint16_t)DRV8323_buildCtrlWord(DRV8323_CtrlMode_Read, regName, 0);
     uint16_t recbuff = 0xbeef;
-    // HAL_SPI_Transmit(handle->spiHandle, (uint8_t *)(&controlword), 1, 1000);
-
-    // // Datasheet says you don't have to pulse the nCS between transfers, (16 clocks should commit the transfer)
-    // // but for some reason you actually need to pulse it.
-    // // Actuate chipselect
-    // HAL_GPIO_WritePin(handle->nCSgpioHandle, handle->nCSgpioNumber, GPIO_PIN_SET);
-    // delay_us(1);
-    // // Actuate chipselect
-    // HAL_GPIO_WritePin(handle->nCSgpioHandle, handle->nCSgpioNumber, GPIO_PIN_RESET);
-    // delay_us(1);
-
     HAL_SPI_TransmitReceive(handle->spiHandle, (uint8_t *)(&controlword), (uint8_t *)(&recbuff), 1, 1000);
     delay_us(1);
 
@@ -338,7 +339,7 @@ uint16_t DRV8323_readSpi(DRV8323_Handle handle, const DRV8323_RegName_e regName)
 
     assert(recbuff != 0xbeef);
     // sj hack
-    recbuff = 0;
+    //recbuff = 0;
     return (recbuff & DRV8323_DATA_MASK);
 }  // end of DRV8323_readSpi() function
 

@@ -2747,5 +2747,54 @@ odrv0.reboot()
 #ok
 #ok
 #fail
+#
+
+# Spurious motor fail - due to FET overtemp, nothing connected to ADC, induced spikes
+#
+
+
+# reading registers from drv8323
+#
+#   0   0       
+#   1   0
+#   2   0
+#   3   1023    011 1111 1111       HS drive p/n = 1000ma/2000mA
+#   4   2047    1 11 1111 1111      Tdrive=4000ns LS drive p/n = 1000mA/2000mA 
+#   5   345     0 01 01 01 1001     SEN_OCP retry=4ms dead_time=100ns ocpmode=01 ocpdeg=4us vds_lvl=0.75v
+#   6   643     0 1 0 10 0 0 0 0 11 CSA_GAIN=20v/v SEN_LVL=1v
+#
+#
+#
+
+
+# After fixes for DRV8323 properly setting ranges and setting reasonable gate drive currents
+odrv0.erase_configuration()
+odrv0.reboot()
+odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+
+  phase_inductance = 1.1765483804992982e-06 (float)
+  phase_resistance = 0.018747001886367798 (float)
+
+  phase_inductance = 1.2849227459810209e-06 (float)
+  phase_resistance = 0.019489843398332596 (float)
+
+  phase_inductance = 1.2821785730920965e-06 (float)
+  phase_resistance = 0.01675691083073616 (float)
+
+  phase_inductance = 1.2772546824635356e-06 (float)
+  phase_resistance = 0.015600020065903664 (float)
+
+odrv0.axis0.encoder.config.pre_calibrated = True
+odrv0.axis0.motor.config.pre_calibrated = True
+odrv0.axis0.controller.config.vel_limit = 5e6
+odrv0.axis0.controller.config.pos_gain = 100
+odrv0.axis0.controller.config.vel_gain = 0.0002
+odrv0.axis0.motor.config.current_lim = 40
+
+odrv0.save_configuration()
+
+odrv0.axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+odrv0.axis0.controller.pos_setpoint  = 1000
+
 
 

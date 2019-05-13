@@ -317,6 +317,45 @@ typedef enum
   DRV8323_VdsLevel_1p880_V = 15 << 6,      //!< Vds = 0.358 V
 } DRV8323_VdsLevel_e;
 
+typedef enum
+{
+  DRV8323_Idrivep_10mA      = 0 << 4,
+  DRV8323_Idrivep_30mA      = 1 << 4,
+  DRV8323_Idrivep_60mA      = 2 << 4,
+  DRV8323_Idrivep_80mA      = 3 << 4,
+  DRV8323_Idrivep_120mA     = 4 << 4,
+  DRV8323_Idrivep_140mA     = 5 << 4,
+  DRV8323_Idrivep_170mA     = 6 << 4,
+  DRV8323_Idrivep_190mA     = 7 << 4,
+  DRV8323_Idrivep_260mA     = 8 << 4,
+  DRV8323_Idrivep_330mA     = 9 << 4,
+  DRV8323_Idrivep_370mA     = 10 << 4,
+  DRV8323_Idrivep_440mA     = 11 << 4,
+  DRV8323_Idrivep_570mA     = 12 << 4,
+  DRV8323_Idrivep_680mA     = 13 << 4,
+  DRV8323_Idrivep_820mA     = 14 << 4,
+  DRV8323_Idrivep_1000mA    = 15 << 4
+} DRV8323_Idrivep_e;
+
+typedef enum
+{
+  DRV8323_Idriven_20mA      = 0 << 0,
+  DRV8323_Idriven_60mA      = 1 << 0,
+  DRV8323_Idriven_120mA     = 2 << 0,
+  DRV8323_Idriven_160mA     = 3 << 0,
+  DRV8323_Idriven_240mA     = 4 << 0,
+  DRV8323_Idriven_280mA     = 5 << 0,
+  DRV8323_Idriven_340mA     = 6 << 0,
+  DRV8323_Idriven_380mA     = 7 << 0,
+  DRV8323_Idriven_520mA     = 8 << 0,
+  DRV8323_Idriven_660mA     = 9 << 0,
+  DRV8323_Idriven_740mA     = 10 << 0,
+  DRV8323_Idriven_880mA     = 11 << 0,
+  DRV8323_Idriven_1140mA    = 12 << 0,
+  DRV8323_Idriven_1360mA    = 13 << 0,
+  DRV8323_Idriven_1640mA    = 14 << 0,
+  DRV8323_Idriven_2000mA    = 15 << 0
+} DRV8323_Idriven_e;
 
 typedef enum
 {

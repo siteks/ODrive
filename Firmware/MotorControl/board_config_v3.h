@@ -59,6 +59,7 @@ typedef struct {
     uint16_t control_deadline;
     float shunt_conductance;
     size_t inverter_thermistor_adc_ch;
+    bool dummy;
 } MotorHardwareConfig_t;
 typedef struct {
     SPI_HandleTypeDef* spi;
