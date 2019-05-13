@@ -109,9 +109,9 @@ struct Config<T, Ts...> {
             return -1;
         uint16_t crc16 = CONFIG_CRC16_INIT ^ config_version;
         if (Config<T, Ts..., uint16_t>::load_config(0, &crc16, val0, vals..., &crc16))
-            return -1;
+            return -2;
         if (crc16)
-            return -1;
+            return -3;
         return 0;
     }
 
@@ -128,14 +128,128 @@ struct Config<T, Ts...> {
         if (size > NVM_get_max_write_length())
             return -1;
         if (NVM_start_write(size))
-            return -1;
+            return -2;
         uint16_t crc16 = CONFIG_CRC16_INIT ^ config_version;
         if (Config<T, Ts...>::store_config(0, &crc16, val0, vals...))
-            return -1;
+            return -3;
         if (Config<uint8_t, uint8_t>::store_config(size - 2, nullptr, (uint8_t *)&crc16 + 1, (uint8_t *)&crc16))
-            return -1;
+            return -4;
         if (NVM_commit())
-            return -1;
+            return -5;
         return 0;
     }
 };
+
+
+int sj_safe_load_config(
+    BoardConfig_t                   *board_config,
+    Encoder::Config_t               *encoder_configs,
+    SensorlessEstimator::Config_t   *sensorless_configs,
+    Controller::Config_t            *controller_configs,
+    Motor::Config_t                 *motor_configs,
+    TrapezoidalTrajectory::Config_t *trap_configs,
+    Axis::Config_t                  *axis_configs
+)
+{
+    size_t size = sizeof(BoardConfig_t) 
+            + 2 * sizeof(Encoder::Config_t)
+            + 2 * sizeof(SensorlessEstimator::Config_t)
+            + 2 * sizeof(Controller::Config_t)
+            + 2 * sizeof(Motor::Config_t)
+            + 2 * sizeof(TrapezoidalTrajectory::Config_t)
+            + 2 * sizeof(Axis::Config_t);
+    uint16_t crc16 = CONFIG_CRC16_INIT ^ config_version;
+    uint16_t offset = 0;
+    size = sizeof(BoardConfig_t);
+    if (NVM_read(offset, (uint8_t *)board_config, size)) return -3;
+    crc16 = calc_crc16<CONFIG_CRC16_POLYNOMIAL>(crc16, (uint8_t *)board_config, size);
+    offset += size;
+    size = 2 * sizeof(Encoder::Config_t);
+    if (NVM_read(offset, (uint8_t *)encoder_configs, size)) return -4;
+    crc16 = calc_crc16<CONFIG_CRC16_POLYNOMIAL>(crc16, (uint8_t *)encoder_configs, size);
+    offset += size;
+    size = 2 * sizeof(SensorlessEstimator::Config_t);
+    if (NVM_read(offset, (uint8_t *)sensorless_configs, size)) return -5;
+    crc16 = calc_crc16<CONFIG_CRC16_POLYNOMIAL>(crc16, (uint8_t *)sensorless_configs, size);
+    offset += size;
+    size = 2 * sizeof(Controller::Config_t);
+    if (NVM_read(offset, (uint8_t *)controller_configs, size)) return -6;
+    crc16 = calc_crc16<CONFIG_CRC16_POLYNOMIAL>(crc16, (uint8_t *)controller_configs, size);
+    offset += size;
+    size = 2 * sizeof(Motor::Config_t);
+    if (NVM_read(offset, (uint8_t *)motor_configs, size)) return -7;
+    crc16 = calc_crc16<CONFIG_CRC16_POLYNOMIAL>(crc16, (uint8_t *)motor_configs, size);
+    offset += size;
+    size = 2 * sizeof(TrapezoidalTrajectory::Config_t);
+    if (NVM_read(offset, (uint8_t *)trap_configs, size)) return -8;
+    crc16 = calc_crc16<CONFIG_CRC16_POLYNOMIAL>(crc16, (uint8_t *)trap_configs, size);
+    offset += size;
+    size = 2 * sizeof(Axis::Config_t);
+    if (NVM_read(offset, (uint8_t *)axis_configs, size)) return -9;
+    crc16 = calc_crc16<CONFIG_CRC16_POLYNOMIAL>(crc16, (uint8_t *)axis_configs, size);
+    offset += size;
+
+    //if (crc16)
+    //    return -10;
+    return 0;
+
+}
+
+int sj_safe_store_config(
+    BoardConfig_t                   *board_config,
+    Encoder::Config_t               *encoder_configs,
+    SensorlessEstimator::Config_t   *sensorless_configs,
+    Controller::Config_t            *controller_configs,
+    Motor::Config_t                 *motor_configs,
+    TrapezoidalTrajectory::Config_t *trap_configs,
+    Axis::Config_t                  *axis_configs
+)
+{
+    size_t size = sizeof(BoardConfig_t) 
+            + 2 * sizeof(Encoder::Config_t)
+            + 2 * sizeof(SensorlessEstimator::Config_t)
+            + 2 * sizeof(Controller::Config_t)
+            + 2 * sizeof(Motor::Config_t)
+            + 2 * sizeof(TrapezoidalTrajectory::Config_t)
+            + 2 * sizeof(Axis::Config_t);
+    if (size > NVM_get_max_write_length())
+        return -1;
+    if (NVM_start_write(size))
+        return -2;
+    uint16_t crc16 = CONFIG_CRC16_INIT ^ config_version;
+    uint16_t offset = 0;
+    size = sizeof(BoardConfig_t);
+    if (NVM_write(offset, (uint8_t *)board_config, size)) return -3;
+    crc16 = calc_crc16<CONFIG_CRC16_POLYNOMIAL>(crc16, (uint8_t *)board_config, size);
+    offset += size;
+    size = 2 * sizeof(Encoder::Config_t);
+    if (NVM_write(offset, (uint8_t *)encoder_configs, size)) return -4;
+    crc16 = calc_crc16<CONFIG_CRC16_POLYNOMIAL>(crc16, (uint8_t *)encoder_configs, size);
+    offset += size;
+    size = 2 * sizeof(SensorlessEstimator::Config_t);
+    if (NVM_write(offset, (uint8_t *)sensorless_configs, size)) return -5;
+    crc16 = calc_crc16<CONFIG_CRC16_POLYNOMIAL>(crc16, (uint8_t *)sensorless_configs, size);
+    offset += size;
+    size = 2 * sizeof(Controller::Config_t);
+    if (NVM_write(offset, (uint8_t *)controller_configs, size)) return -6;
+    crc16 = calc_crc16<CONFIG_CRC16_POLYNOMIAL>(crc16, (uint8_t *)controller_configs, size);
+    offset += size;
+    size = 2 * sizeof(Motor::Config_t);
+    if (NVM_write(offset, (uint8_t *)motor_configs, size)) return -7;
+    crc16 = calc_crc16<CONFIG_CRC16_POLYNOMIAL>(crc16, (uint8_t *)motor_configs, size);
+    offset += size;
+    size = 2 * sizeof(TrapezoidalTrajectory::Config_t);
+    if (NVM_write(offset, (uint8_t *)trap_configs, size)) return -8;
+    crc16 = calc_crc16<CONFIG_CRC16_POLYNOMIAL>(crc16, (uint8_t *)trap_configs, size);
+    offset += size;
+    size = 2 * sizeof(Axis::Config_t);
+    if (NVM_write(offset, (uint8_t *)axis_configs, size)) return -9;
+    crc16 = calc_crc16<CONFIG_CRC16_POLYNOMIAL>(crc16, (uint8_t *)axis_configs, size);
+    offset += size;
+
+    if (NVM_commit())
+        return -10;
+    return 0;
+
+}
+

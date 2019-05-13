@@ -12,7 +12,7 @@ void Controller::reset() {
     vel_setpoint_ = 0.0f;
     vel_integrator_current_ = 0.0f;
     current_setpoint_ = 0.0f;
-    calc_cogging_map();
+    //calc_cogging_map();
 }
 
 void Controller::set_error(Error_t error) {

@@ -110,10 +110,35 @@ static void set_hysteresis(const EncoderHardwareConfig_t &hw_config, int h)
     write_enc_register(hw_config, 0xd, data);
 }
 
-static int16_t get_enc_position(const EncoderHardwareConfig_t &hw_config)
-{
-    int16_t a = read_enc_register(hw_config, 2) & 0x7fff; 
-    return a;
+static int16_t get_enc_position(const EncoderHardwareConfig_t &hw_config, uint16_t &phase, uint16_t &data)
+{  
+    // This is time critical and should be done by the hardware
+    uint16_t val = (1 << 15) | (0xc << 11) | (0 << 10) | (2 << 4) | (0 << 0);
+
+    {
+        GPIO_set_dir_output(hw_config.data_port, hw_config.data_pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(hw_config.csq_port, hw_config.csq_pin, GPIO_PIN_RESET);
+        //delay_us(1);    // tcss 105ns
+        for(int i = 0; i < 16; i++, val<<=1)
+        {
+            // Max toggle rate tested gave ~90ns high and low widths, datasheet needs >40ns
+            // so no delays should be fine here
+            HAL_GPIO_WritePin(hw_config.sck_port, hw_config.sck_pin, GPIO_PIN_SET);
+            HAL_GPIO_WritePin(hw_config.data_port, hw_config.data_pin, (val & 0x8000) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(hw_config.sck_port, hw_config.sck_pin, GPIO_PIN_RESET);
+        }
+        GPIO_set_dir_input(hw_config.data_port, hw_config.data_pin);
+        data = 0;
+        for(int i = 0; i < 16; i++)
+        {
+            HAL_GPIO_WritePin(hw_config.sck_port, hw_config.sck_pin, GPIO_PIN_SET);
+            HAL_GPIO_WritePin(hw_config.sck_port, hw_config.sck_pin, GPIO_PIN_RESET);
+            data = (data << 1) | HAL_GPIO_ReadPin(hw_config.data_port, hw_config.data_pin);
+        }
+        HAL_GPIO_WritePin(hw_config.csq_port, hw_config.csq_pin, GPIO_PIN_SET);
+    }
+    //int16_t a = read_enc_register(hw_config, 2) & 0x7fff; 
+    return data & 0x7fff;
 }
 
 void Encoder::setup() {
@@ -458,7 +483,7 @@ bool Encoder::update() {
         } break;
         
         case MODE_ABSOLUTE: {
-            int16_t pos = get_enc_position(hw_config_);
+            int16_t pos = get_enc_position(hw_config_, config_.phase, config_.data);
             int32_t diff = (int32_t)pos - (int32_t)last_pos;
             last_pos = pos;
             if (diff < -16384) 

@@ -31,15 +31,18 @@ typedef Config<
     Axis::Config_t[AXIS_COUNT]> ConfigFormat;
 
 void save_configuration(void) {
-    if (ConfigFormat::safe_store_config(
+    //int res = ConfigFormat::safe_store_config(
+    int res = sj_safe_store_config(
             &board_config,
-            &encoder_configs,
-            &sensorless_configs,
-            &controller_configs,
-            &motor_configs,
-            &trap_configs,
-            &axis_configs)) {
-        //printf("saving configuration failed\r\n"); osDelay(5);
+            encoder_configs,
+            sensorless_configs,
+            controller_configs,
+            motor_configs,
+            trap_configs,
+            axis_configs);
+    if (res) {
+        printf("saving configuration failed\r\n"); 
+        osDelay(5);
     } else {
         user_config_loaded_ = true;
     }
@@ -47,15 +50,18 @@ void save_configuration(void) {
 
 extern "C" int load_configuration(void) {
     // Try to load configs
-    if (NVM_init() ||
-        ConfigFormat::safe_load_config(
+    volatile int res = 0;
+    res = NVM_init();
+    //res |= ConfigFormat::safe_load_config(
+    res |= sj_safe_load_config(
                 &board_config,
-                &encoder_configs,
-                &sensorless_configs,
-                &controller_configs,
-                &motor_configs,
-                &trap_configs,
-                &axis_configs)) {
+                encoder_configs,
+                sensorless_configs,
+                controller_configs,
+                motor_configs,
+                trap_configs,
+                axis_configs);
+    if (res) {
         //If loading failed, restore defaults
         board_config = BoardConfig_t();
         for (size_t i = 0; i < AXIS_COUNT; ++i) {
@@ -75,7 +81,11 @@ extern "C" int load_configuration(void) {
 }
 
 void erase_configuration(void) {
-    NVM_erase();
+    volatile int res = NVM_erase();
+    if (res)
+    {
+        printf("");
+    }
 }
 
 void enter_dfu_mode() {

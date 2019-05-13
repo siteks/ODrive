@@ -72,6 +72,7 @@ void Motor::DRV8323_setup() {
     // Solve for exact gain, then snap down to have equal or larger range as requested
     // or largest possible range otherwise
     static const float kMargin = 0.90f;
+    static const float kTripMargin = 1.0f; // Trip level is at edge of linear range of amplifer
     static const float max_output_swing = 1.6f; // [V] out of amplifier
     float max_unity_gain_current = kMargin * max_output_swing * hw_config_.shunt_conductance; // [A]
     float requested_gain = max_unity_gain_current / config_.requested_current_range; // [V/V]
@@ -98,6 +99,8 @@ void Motor::DRV8323_setup() {
     phase_current_rev_gain_ = 1.0f / gain_snap_down->first;
     // Clip all current control to actual usable range
     current_control_.max_allowed_current = max_unity_gain_current * phase_current_rev_gain_;
+    // Set trip level
+    current_control_.overcurrent_trip_level = (kTripMargin / kMargin) * current_control_.max_allowed_current;
 
     // We don't really need to do this local register stuff, all that is done
     // in this setup is to set the current amp gains
@@ -190,6 +193,7 @@ void Motor::set_error(Motor::Error_t error){
 }
 
 float Motor::get_inverter_temp() {
+    return 0; // No thermister wired up
     float adc = adc_measurements_[hw_config_.inverter_thermistor_adc_ch];
     float normalized_voltage = adc / adc_full_scale;
     return horner_fma(normalized_voltage, thermistor_poly_coeffs, thermistor_num_coeffs);
@@ -322,7 +326,7 @@ bool Motor::measure_phase_inductance(float voltage_low, float voltage_high) {
 
     config_.phase_inductance = L;
     // TODO arbitrary values set for now
-    if (L < 2e-6f || L > 4000e-6f)
+    if (L < 1e-6f || L > 4000e-6f)
         return set_error(ERROR_PHASE_INDUCTANCE_OUT_OF_RANGE), false;
     return true;
 }

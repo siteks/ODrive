@@ -84,13 +84,12 @@ void init_communication(void) {
     printf("hi!\r\n");
 
     // Start command handling thread
-    osThreadDef(task_cmd_parse, communication_task, osPriorityNormal, 0, 8000 /* in 32-bit words */); // TODO: fix stack issues
+    osThreadDef(task_cmd_parse, communication_task, osPriorityNormal, 0, 10000 /* in 32-bit words */); // TODO: fix stack issues
     comm_thread = osThreadCreate(osThread(task_cmd_parse), NULL);
 
     while (!endpoint_list_valid)
         osDelay(1);
 }
-
 
 float oscilloscope[OSCILLOSCOPE_SIZE] = {0};
 size_t oscilloscope_pos = 0;

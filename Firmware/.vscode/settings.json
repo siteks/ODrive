@@ -36,5 +36,6 @@
         "type_traits": "cpp",
         "typeinfo": "cpp",
         "algorithm": "cpp"
-    }
+    },
+    "python.linting.enabled": false
 }

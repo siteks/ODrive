@@ -1,0 +1,2751 @@
+Some interesting web pages:
+
+
+
+https://www.eevblog.com/forum/projects/hacking-an-inkjet-printhead/
+http://ytec3d.com/forum/viewtopic.php?t=47
+
+Hacking an actual Epson printhead
+http://www.piclist.com/techref/pcb/etch/custom-vs.htm
+
+
+
+#=====================================
+# kicad
+#=====================================
+#
+# Downloaded nightly from http://downloads.kicad-pcb.org/osx/nightly/
+# kicad-20180510-032921.d41e64b-c4osx.dmg
+
+# Starts with no libraries, but I had IPC footprints etc in:
+/Network/simonj/new_world/kicad-pcblib
+# and also shim symbols.
+# Don't bother with any library setup:
+
+cd /Network/simonj/new_world
+mkdir kicad_libraries
+cd kicad_libraries
+cp ../kicad-pcblib/basic.lib
+git clone https://github.com/KiCad/kicad-symbols.git
+
+
+# Start kicad
+# In eeschema: Preferences->Manage Symbol Libraries->Global Libraries
+# Browse Libraries... 
+# Then add all the .lib files in:basic.lib and all in kicad-symbols
+#
+# basic is a lot of my own symbols, nicer Rsmall, and Csmall, CPsmall
+#
+# The kicad git repo ones are a mixed bunch, old school
+
+
+
+
+
+
+Printhead protocol
+==================
+
+
+
+Using the logic analyser with triggering on edgees and running a simple print with black only, we see:
+
+d6 always high
+d5 always high
+
+d4 groups of 4 pulses eg
+20,33,56 us after first, with pulse on d3 27us earlier
+
+pulse train on d2 (clk)
+d1,d0 serial data?
+
+Trigger on counts of d3 rising edge:
+
+1       Head just unparked
+2       "
+2000    Looks like at least a thousand d3 edges just after unparking - priming the head?
+
+Every d3 is followed by 4 d4 pulses
+
+After each d4, there are up to 90 clk pulses (~1us)
+
+d4-0    90
+d4-1    90
+d4-2    16  data on d0 and d1 appears to be double edge clocked
+d4-3    0
+
+We know that there are 180 black and 180 cmy nozzles, and each nozzle is programmed with 2 bits
+(US patent 6758544). These two bits select some combination of the trapzoidal pulses from the 
+waveform generator to give different size drops.
+
+The combination of trapezoidal pulses selected is based on a lookup table programmed from the 16 clock
+phase of serial data
+
+Hypothesis:
+
+                Per dot period of ~100us
+d0      sicl    serial data for cmy (180 hi + 180 lo + 32 LUT)
+d1      sibk    serial data for k  (180 hi + 180 lo + 32 LUT)
+d2      clk     90 + 90 + 16
+d3      lat     latch serial data
+d4      ch      4 pulses corresponding to start of the 4 trapezoidal waveforms
+
+Serial data over the previous dot period is latched with lat, the jetting is then
+triggered by the four pulses on ch
+
+
+
+Trapezoidal waveform is generated directly by the e09a88, which is basically
+a high voltage 10 bit DAC with driver for NPN PNP push pull output.
+
+Using logic analyser, the update rate has a 80ns clock, or 125MHz.
+With a dot period of 100us, we need 1250 values, or generate a trapezoidal
+waveform directly
+
+The ICE40HX1K-TQ144 that I have left over from Xpuck has 16 blocks of 4k bits.
+Using 5 blocks gives 2k values for arbitrary waveform generation. 
+
+Data rate for the nozzles - 2 bits * (180 + 16) = 392 bits / 100us = 4Mbits/s.. slow
+Total data for a single pass - assume 180 dpi = 7.1 dpmm * 100mm = 710 sets
+Each set is 392 bits - 278kbits over 70 ms
+
+
+
+# Design idea:
+# ============
+
+# Use rpi with SMI interface to connect to FPGA. This could be very useful for 
+# stepper control etc.
+
+# SMI is very poorly documented.
+
+
+#Installed latest 2018-04-18-raspbian-stretch-lite.zip
+
+# Added:
+
+192.168.0.32:/volume1/simonj /home/simonj nfs defaults,vers=3,rsize=8192,wsize=8192,timeo=10,intr 0 0
+
+# to /etc/fstab
+
+# SMI
+# ===
+
+# DREQ 4  - SMI
+# irq48   - smi
+
+
+
+shim pinout
+1   nc
+2   gnd
+3   nc
+4   rtsn    p18 105     7       gpio4       sa1
+5   ctsn    p17 104     8       gpio14      sd6
+6   rxd     p20 107     10      gpio15      sd7
+7   mosi    p22 73      11      gpio17      sd9
+8   txd     p19 106     12      gpio18      sd10
+9   miso    p23 76  **  15      gpio22      sd14
+10  clk     p0  94      16      gpio23      sd15
+11  csn     p24 74      19      gpio10      sd2
+12  nc      
+13  int13   p4  80      21      gpio9       sd1
+14  scl     
+15  int10   p2  78      23      gpio11      sd3
+16  sda         
+17  int14   p5  81      24      gpio8       sd0
+18  int11   p3  79      26      gpio7       swen
+19  int22   p11 96      29      gpio5       sa0
+20  int20   p9  91      40      gpio21      sd13
+21  int21   p10 95      31      gpio6       soen
+22  int23   p12 97      32      gpio12      sd4
+23  nc
+24  int17   p8  90      33      gpio13      sd5
+25  int15   p6  87      35      gpio19      sd11
+26  int16   p7  88      36      gpio16      sd8
+27  int25   p13 98      38      gpio20      sd12
+28  gnd
+29  3v3
+30  gnd
+
+
+
+
+pinout - GPIO ALT0      pin(rpi)    pin(shim)       pin (fpga)
+gpio0   sa5             
+gpio1   sa4
+gpio2   sa3             3
+gpio3   sa2             5
+gpio4   sa1             7           4       p18     105
+gpio5   sa0             29          19      p11     96
+gpio6   soe_n/se        31          21      p10     95
+gpio7   swe_n/srw_n     26          18      p3      79
+gpio8   sd0             24          17      p5      81
+gpio9   sd1             21          13      p4      80
+gpio10  sd2             19          11      p24     74
+gpio11  sd3             23          15      p2      78
+gpio12  sd4             32          22      p12     97
+gpio13  sd5             33          24      p8      90
+gpio14  sd6             8           5       p17     104
+gpio15  sd7             10          6       p20     107
+gpio16  sd8             36          26      p7      88
+gpio17  sd9             11          7       p22     73
+gpio18  sd10            12          8       p19     106
+gpio19  sd11            35          25      p6      87
+gpio20  sd12            38          27      p13     98
+gpio21  sd13            40          20      p9      91
+gpio22  sd14            15          9       p23     76
+gpio23  sd15            16          10      p0      78
+gpio24  sd16            18          
+gpio25  sd17            22
+gpio28  sa5             
+gpio29  sa4
+gpio30  sa3
+gpio31  sa2
+gpio32  sa1
+gpio33  sa0
+gpio34  soe_n
+gpio35  swe_n
+gpio36  sd0
+gpio37  sd1
+gpio38  sd2
+gpio39  sd3
+gpio40  sd4
+gpio41  sd5
+gpio42  sd6
+gpio43  sd7
+
+
+RPI gpio2 - gpio
+
+# Add:
+
+dtoverlay=smi
+dtoverlay=smi-dev
+
+# to /boot/config.txt 
+# https://www.raspberrypi.org/forums/viewtopic.php?t=92233
+
+# smi utility
+# https://github.com/Terminus-IMRC/raspi-smi-util.git
+
+
+sudo att-get install libssl-dev
+git clone https://github.com/Terminus-IMRC/raspi-smi-util.git
+cd raspi-smi-util
+make
+
+# Seems to lock up at 256 bytes on second call..
+
+sudo ./raspi-smi-util -w 16 -v
+
+
+Ok, got it communicating with FPGA. Can we use some of the IOs for config?
+
+
+
+
+Board Spec
+==========
+
+D-sub 25 printer port style connector, like Mesa5i25
+Printhead connector
+Printhead driver
+ADC - 8 channel?
+
+ice40hx1k-tq144 FPGA
+Configuration flash (optional)
+
+
+For printer:
+encoder inputs with 4k7 pullups and 10k/100p filter
+enc1a
+enc1b
+enc2a
+enc2b
+
+motor drive:
+42v h-bridge
+l6207q £1.65 rs 828-9970
+
+
+Connectors for RAMPS-1.4:
+=========================
+Mosfets are STP55NF06L
+
+
+
+
+
+
+
+
+# PlatformIO for oven controller
+# ------------------------------
+
+cd digital_oven
+platformio init --ide clion --board nanoatmega328
+
+# put sources in src
+# Rerun init command to recognise sources
+
+platform init -ide clion
+
+# Install libraries:
+
+# u8g2 display controller
+platformio lib install "U8g2"
+
+# coorperative task scheduling
+platformio lib install "TaskScheduler"
+
+
+# See the serial output:
+platformio device monitor -b 115200
+
+# This should get the baud rate from .ini but doesn't seem to
+
+
+
+
+
+# Using fully open source FPGA tools
+# ==================================
+
+
+
+
+# From http://www.clifford.at/icestorm/
+# on ubuntu 18.04 box
+
+
+sudo apt-get install build-essential clang bison flex libreadline-dev \
+                     gawk tcl-dev libffi-dev git mercurial graphviz   \
+                     xdot pkg-config python python3 libftdi-dev
+
+
+# Get toolchain
+
+cd ~/new_world/
+mkdir openfpga
+cd openfpga
+
+git clone https://github.com/cliffordwolf/icestorm.git icestorm
+cd icestorm
+make
+sudo make install
+cd ..
+
+git clone https://github.com/cseed/arachne-pnr.git arachne-pnr
+cd arachne-pnr
+make
+sudo make install
+cd ..
+
+git clone https://github.com/cliffordwolf/yosys.git yosys
+cd yosys
+make
+sudo make install
+cd ..
+
+
+
+# in /home/simonj/new_world/printable_electronics/rpi/testfpga
+# do
+make
+
+# to run the new synthesis flow.
+# src/shim.pcf is pin assignment
+
+#--------------------------------------
+# Modifying iceprog to work with rpi setup
+#--------------------------------------
+
+# on mac
+cd /Network/simonj/new_world/printable_electronics/rpi/rpi_utils
+cp ../../../openfpga/icestorm/iceprog/iceprog.c
+
+# On rpi:
+cd /Network/simonj/new_world/printable_electronics/rpi/rpi_utils
+
+# install pigpio
+wget https://github.com/joan2937/pigpio/archive/master.zip
+unzip master.zip
+cd pigpio-master
+make
+sudo make install
+cd ..
+rm -rf pigpio-master
+
+
+
+# Replaced ftdi stuff with bit banged SPI, works!!
+
+# Program bitstream with:
+cd /home/simonj/new_world/printable_electronics/rpi/rpi_utils
+sudo ./iceprog ../testfpga/shim.bin
+
+
+
+
+
+
+#--------------------------------------
+# Basic functionality
+#--------------------------------------
+
+# testfpga/shim.bin     is a bitstream for the fpga that implement a simple SMI interface
+# rpi_utils/fpgacom.c   is a program demonstrating writing to the SMI, does a running light on the leds
+
+#--------------------------------------
+# Installing machinekit and a realtime kernel
+#--------------------------------------
+
+# Started with standard raspbian install, 
+
+
+#Installed latest 2018-04-18-raspbian-stretch-lite.zip
+
+# to /etc/fstab
+192.168.0.32:/volume1/simonj /home/simonj nfs defaults,vers=3,rsize=8192,wsize=8192,timeo=10,intr 0 0
+
+# to /boot/config.txt 
+dtoverlay=smi
+dtoverlay=smi-dev
+
+
+
+# from http://www.machinekit.io/docs/getting-started/APT-packages-raspbian/
+sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 43DDF224
+gpg: failed to start the dirmngr '/usr/bin/dirmngr': No such file or directory
+
+sudo apt-get install dirmngr
+sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 43DDF224
+sudo sh -c "echo 'deb http://deb.machinekit.io/debian jessie main' > /etc/apt/sources.list.d/machinekit.list"
+sudo apt-get update
+
+# http://www.machinekit.io/docs/getting-started/install-rt-kernel-RPi2/
+sudo apt-get install -y raspberrypi-bootloader
+sudo -s
+apt-get install linux-image-rpi2-rt
+
+# This failed, there doesn't seem to be an RT kernel in the repo
+
+# Following instructions here for install of prebuilt RT kernel:
+# http://www.frank-durr.de/?p=203
+sudo rm -r /boot/overlays/
+sudo rm -r /lib/firmware/
+cd /tmp
+wget http://download.frank-durr.de/kernel-4.4.9-rt17.tgz
+tar xzf kernel-4.4.9-rt17.tgz
+cd boot
+sudo cp -rd * /boot/
+cd ../lib
+sudo cp -dr * /lib/
+sudo /sbin/reboot
+
+simonj@raspberrypi:~$ uname -a
+Linux raspberrypi 4.4.9-rt17-v7+ #1 SMP PREEMPT RT Wed May 11 22:46:14 CEST 2016 armv7l GNU/Linux
+
+
+# Seems to work, mostly.
+
+# cd new_world/rt_tests
+sudo ./cyclictest -p 80 -a -t -n -l 100000
+
+# runs, looking promising, but locks up
+#
+# added options to cmdline.txt from http://www.machinekit.io/docs/getting-started/install-rt-kernel-RPi2/
+simonj@raspberrypi:~$ cat /boot/cmdline.txt 
+dwc_otg.lpm_enable=0 console=serial0,115200 console=tty1 root=PARTUUID=3d463150-02 rootfstype=ext4 elevator=deadline fsck.repair=yes rootwait dwc_otg.fiq_enable=0 dwc_otg.fiq_fsm_enable=0 dwc_otg.nak_holdoff=0
+
+
+
+simonj@raspberrypi:~/new_world/rt-tests$ sudo ./cyclictest -p 80 -a -t -n -l 100000
+[sudo] password for simonj: 
+# /dev/cpu_dma_latency set to 0us
+policy: fifo: loadavg: 0.44 0.39 0.17 1/152 684          
+
+T: 0 (  621) P:80 I:1000 C: 100000 Min:     11 Act:   20 Avg:   28 Max:      95
+T: 1 (  622) P:80 I:1500 C:  66667 Min:     11 Act:   19 Avg:   22 Max:      73
+T: 2 (  623) P:80 I:2000 C:  50000 Min:     11 Act:   21 Avg:   22 Max:      61
+T: 3 (  624) P:80 I:2500 C:  40000 Min:     12 Act:   22 Avg:   23 Max:      76
+
+# another, with a bit more load:
+T: 0 (  693) P:80 I:1000 C: 100000 Min:     11 Act:   37 Avg:   26 Max:     105
+T: 1 (  694) P:80 I:1500 C:  66671 Min:     11 Act:   14 Avg:   21 Max:      78
+T: 2 (  695) P:80 I:2000 C:  50003 Min:     11 Act:   14 Avg:   22 Max:      79
+T: 3 (  696) P:80 I:2500 C:  40003 Min:     12 Act:   15 Avg:   23 Max:      88
+
+# No lockups so far.
+
+# Allow any user access:
+echo '* - rtprio 99' |sudo tee -a /etc/security/limits.conf 
+# log out an back in to take effect
+
+
+# Now install machinekit
+sudo apt-get install machinekit-rt-preempt
+# fails with missing dep that sounds messy:
+The following packages have unmet dependencies:
+ machinekit-rt-preempt : Depends: machinekit (= 0.1.1531582085.git25d1cae-1~jessie) but it is not going to be installed
+                         Depends: libprotobuf9 but it is not installable
+E: Unable to correct problems, you have held broken packages.
+
+
+# Attempt to use the beaglebone build I already have..
+# My standard bashrc already has:
+if [ "$HOSTNAME" != "debian" ]; then
+# dont use this source build on lathe machine
+    if [ -f ~/new_world/machinekit/scripts/rip-environment ]; then
+        . ~/new_world/machinekit/scripts/rip-environment
+        echo "Environment set up for running Machinekit and LinuxCNC"
+    fi
+else
+    if [ -f ~/new_world/lathe/machinekit/scripts/rip-environment ]; then
+        . ~/new_world/lathe/machinekit/scripts/rip-environment
+        echo "Environment set up for running Machinekit and LinuxCNC"
+    fi
+fi
+
+# which uses a special build for the lathe PC, and another for the 3d printer on beaglebone
+# Just running machinekit fails:
+simonj@raspberrypi:~/new_world/machinekit$ machinekit
+MACHINEKIT - 0.1
+/home/simonj/new_world/machinekit/scripts/linuxcnc: line 281: /usr/bin/wish8.6: No such file or directory
+
+# Installing the build dependencies:
+
+
+# Install the machinekit source
+git clone https://github.com/machinekit/machinekit.git machinekit_rpi
+cd machinekit_rpi
+sudo apt-get install --no-install-recommends devscripts equivs
+sudo mk-build-deps -ir
+./autogen.sh
+
+make
+
+# Does eventually build successfully, takes about 2 hours
+
+
+#--------------------------------------
+# Synthesising hostmot2 for iCE40HX1k
+#--------------------------------------
+
+# Copied my lathe version of hostmot2
+
+cd /Network/simonj/new_world/printable_electronics/rpi
+cp -r /Network/simonj/new_world/lathe/hostmot2 .
+
+# Installed Lattice tools
+# 
+tar xf iCEcube2setup_Sep_12_2017_1708.tgz
+./iCEcube2setup_Sep_12_2017_1708 
+
+# Fails due to needing 32bit libraries???
+# Ah, this was all in the metis README
+sudo apt-get install -y libz-dev:i386
+sudo apt-get install -y libxext6:i386
+sudo apt-get install -y libpng12-dev:i386
+sudo apt-get install -y libsm-dev:i386
+sudo apt-get install -y libxi-dev:i386
+sudo apt-get install -y libxrender-dev:i386
+sudo apt-get install -y libxrandr-dev:i386
+sudo apt-get install -y libxcursor-dev:i386
+sudo apt-get install -y libxinerama-dev:i386
+sudo apt-get install -y libfreetype6:i386
+sudo apt-get install -y libfontconfig:i386
+sudo apt-get install -y libgthread-2.0:i386
+sudo apt-get install -y libglib2.0-0:i386
+sudo apt-get install -y libelf-dev:i386
+
+# Then installs ok
+# But doesn't work, fails with no license for Synplify Pro
+
+# Tried, LSE synthesis, got it to run, needed to fix up some VHDL generics to have
+# default values, but eventually fails with seg fault
+
+WARNING - synthesis: /srv/simonj/new_world/printable_electronics/rpi/hostmot2/hostmot2-firmware/fw/7i43-4/SVST2_4_7I47.vhd(181): replacing existing netlist TopEPPHostMot2(Behavioral). VHDL-1205
+Top module name (VHDL): TopEPPHostMot2
+Last elaborated design is TopEPPHostMot2(Behavioral)
+Loading NGL library '/home/simonj/lscc/iCEcube2.2017.08/LSE/xo2c00/data/xo2clib.ngl'...
+Loading NGL library '/home/simonj/lscc/iCEcube2.2017.08/LSE/or5g00/data/orc5glib.ngl'...
+Segmentation fault (core dumped)
+# exited with 35584
+fw/firmwares-local.mk:1: recipe for target 'fw/7i43-4/SVST2_4_7I47.BIT' failed
+
+
+# Trying again with synplify pro... found the binary that is supposed to execute
+# (~/lscc/iCEcube2.2017.08/synpbase/linux_a_64/mbin/synplify)
+simonj@imaclinux:~/new_world/printable_electronics/rpi/hostmot2$ ~/lscc/iCEcube2.2017.08/synpbase/linux_a_64/mbin/synplify 
+/home/simonj/lscc/iCEcube2.2017.08/synpbase/linux_a_64/mbin/synplify: error while loading shared libraries: libtcl8.5.so: cannot open shared object file: No such file or directory
+
+sudo apt-get install libtcl8.5
+sudo apt-get install libqtwebkit4
+
+# Now starts but fails on license again..
+
+# Ah! tried on parallels linux and works, 
+# http://www.latticesemi.com/en/Support/AnswerDatabase/5/0/6/5060 says it uses hardwired eth0, ubuntu18.04 has interface
+# name enp3s0f0
+
+# https://askubuntu.com/questions/767786/changing-network-interfaces-name-ubuntu-16-04
+echo 'SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", ATTR{dev_id}=="0x0", ATTR{type}=="1", NAME="eth0"' |sudo tee /etc/udev/rules.d/70-persistent-net.rules
+
+# Yes!! Now gets license
+
+
+# Needed to implement behavioural SRL16E which is used as explicit instantiation
+
+# Doesn't fit
+
+                            LUT (1280)  FF (1280)
+i43_200 SVST2_4_7I47        2294        1890
+i43_200 SV8                 2475        1867
+i43_200 SV6_7I48            2049        1597    
+
+
+
+
+
+#--------------------------------------
+# Trying Odrive firmware on motor drive board
+#--------------------------------------
+
+
+#
+# https://docs.odriverobotics.com/odrivetool.html#flashing-with-an-stlink
+#
+# connect stlink2
+#   swclk   -   j1-2
+#   gnd     -   j1-3
+#   swdio   -   j1-4
+#
+# download firmware:
+wget https://github.com/madcowswe/ODrive/releases/download/fw-v0.4.1/ODriveFirmware_v3.5-24V.elf
+
+# flash
+openocd -f interface/stlink-v2.cfg -f target/stm32f4x.cfg -c init -c reset\ halt -c flash\ write_image\ erase\ ODriveFirmware_v3.5-24V.elf -c reset\ run -c exit
+
+
+
+
+# Sensorless:
+# https://discourse.odriverobotics.com/t/startup-procedure-for-sensorless-with-odrive-3-5/768
+
+# small 2000kv motor
+odrv0.config.brake_resistance = 0
+odrv0.axis0.requested_state =AXIS_STATE_MOTOR_CALIBRATION
+odrv0.axis0.controller.config.control_mode = CTRL_MODE_VELOCITY_CONTROL
+# this has to be set to 5.51 / (pole_pairs * kv)
+odrv0.axis0.sensorless_estimator.config.pm_flux_linkage = 0.000394
+ordv0.save_configuration()
+
+odrv0.axis0.controller.set_vel_setpoint(2000,0.2)
+odrv0.axis0.requested_state = AXIS_STATE_SENSORLESS_CONTROL
+# change speed:
+odrv0.axis0.controller.set_vel_setpoint(3000,0.2)
+
+# big gimbal motor
+odrv0.axis0.motor.config.motor_type = MOTOR_TYPE_GIMBAL
+# dont know what kv - possibly as low as 50 => 
+odrv0.axis0.sensorless_estimator.config.pm_flux_linkage = 0.015
+odrv0.axis0.config.spin_up_current = 1
+odrv0.axis0.motor.config.current_lim = 1
+
+# can't seem to get it to go beyond manual spinup, as soon as sensorless kicks in, it stops.
+# Hmm, maybe sensorless doesn't work with gimbal mode??
+#
+
+# Third motor A2212/6T 2200KV
+odrv0.axis0.motor.config.motor_type = MOTOR_TYPE_HIGH_CURRENT
+odrv0.axis0.controller.config.control_mode = CTRL_MODE_VELOCITY_CONTROL
+odrv0.axis0.sensorless_estimator.config.pm_flux_linkage = 0.000394
+odrv0.axis0.config.spin_up_acceleration=400
+odrv0.axis0.config.spin_up_target_vel=1000
+odrv0.axis0.config.spin_up_current=10
+odrv0.axis0.controller.config.vel_gain = 0.001
+odrv0.axis0.requested_state = AXIS_STATE_MOTOR_CALIBRATION
+odrv0.axis0.motor.config.pre_calibrated = True
+
+odrv0.save_configuration()
+
+odrv0.axis0.requested_state = AXIS_STATE_SENSORLESS_CONTROL
+odrv0.axis0.controller.set_vel_setpoint(2000, 0)
+
+
+
+
+# Attached encoder:
+# Once only:
+odrv0.axis0.controller.config.control_mode = CTRL_MODE_POSITION_CONTROL
+odrv0.axis0.encoder.config.use_index = True
+odrv0.axis0.encoder.config.cpr=16384
+odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+odrv0.axis0.motor.config.pre_calibrated = True
+odrv0.axis0.config.startup_encoder_index_search = True
+odrv0.save_configuration()
+
+
+# After reboot:
+# coded a proper PID in the controller
+odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+odrv0.axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+odrv0.axis0.controller.pos_setpoint  = 0      
+odrv0.axis0.controller.config.vel_limit = 1e6
+
+odrv0.axis0.controller.config.pos_gain = 0.006
+odrv0.axis0.controller.config.vel_gain = 0.00005
+
+
+# Big motor
+
+odrv0.axis0.encoder.config.cpr = 16384
+odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+odrv0.axis0.controller.config.pos_gain = 0.01
+odrv0.axis0.controller.config.vel_gain = 0.00005
+odrv0.axis0.controller.config.vel_limit = 1e6
+odrv0.axis0.motor.config.current_lim = 20
+odrv0.save_configuration()
+odrv0.axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+
+odrv0.axis0.controller.pos_setpoint  = -1000
+odrv0.axis0.controller.pos_setpoint  = 1000
+
+# Big motor with 8x raw count multiplier
+odrv0.axis0.encoder.config.cpr = 2048
+odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+odrv0.axis0.controller.config.pos_gain = 0.1
+odrv0.axis0.controller.config.vel_gain = 0.002
+odrv0.axis0.controller.config.vel_limit = 1e5
+odrv0.axis0.motor.config.current_lim = 15
+odrv0.save_configuration()
+odrv0.axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+
+odrv0.axis0.controller.pos_setpoint  = 1000
+
+
+# dys D3536/11 750KV
+odrv0.axis0.requested_state =AXIS_STATE_MOTOR_CALIBRATION
+odrv0.axis0.controller.config.control_mode = CTRL_MODE_VELOCITY_CONTROL
+odrv0.axis0.sensorless_estimator.config.pm_flux_linkage = 0.00105
+odrv0.axis0.config.spin_up_target_vel=1000
+
+
+
+# with big motor and hacked encoder
+odrv0.axis0.encoder.config.cpr = 32768
+odrv0.axis0.encoder.config.use_index = False
+odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+odrv0.axis0.controller.config.control_mode = CTRL_MODE_POSITION_CONTROL
+odrv0.axis0.controller.config.vel_gain = 0.0001
+odrv0.axis0.controller.config.pos_gain = 50
+
+odrv0.axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+
+# back with pid
+
+odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+odrv0.axis0.encoder.config.pre_calibrated = True
+
+odrv0.axis0.controller.config.control_mode = CTRL_MODE_POSITION_CONTROL
+odrv0.axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+
+
+# PID replacement
+odrv0.erase_configuration()
+odrv0.axis0.encoder.config.cpr = 32768
+odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+odrv0.axis0.encoder.config.pre_calibrated = True
+odrv0.axis0.motor.config.pre_calibrated = True
+odrv0.save_configuration()
+
+# back to original PIV, but with a position integrator added
+odrv0.erase_configuration()
+odrv0.axis0.encoder.config.cpr = 32768
+odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+odrv0.axis0.encoder.config.pre_calibrated = True
+odrv0.axis0.motor.config.pre_calibrated = True
+odrv0.axis0.controller.config.vel_limit = 1e7
+odrv0.axis0.controller.config.pos_gain = 80
+odrv0.axis0.controller.config.pos_int_gain = 0.01
+odrv0.axis0.controller.config.vel_gain = 0.00006
+odrv0.axis0.controller.config.vel_integrator_gain = 0
+
+odrv0.save_configuration()
+
+
+
+# Using gdb to get array data:
+# set breakpoint after array loaded
+p (char*)&pos_map + 0x8000
+dump binary memory /Volumes/Data/simonj/pos_map.bin 0x200032ac 0x2000b2ac
+
+
+
+# Manual mode for cogging experiments
+
+odrv0.axis0.controller.config.control_mode = CTRL_MODE_VELOCITY_CONTROL
+odrv0.axis0.requested_state = AXIS_STATE_MANUAL_CONTROL
+
+# Conclusion - Ripmax motor is so bad that it can't be compensated or used
+=============================
+
+# Orange dys motor
+odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+odrv0.axis0.controller.config.control_mode = CTRL_MODE_POSITION_CONTROL
+odrv0.axis0.encoder.config.pre_calibrated = True
+odrv0.axis0.motor.config.pre_calibrated = True
+odrv0.axis0.controller.config.pos_gain = 160
+odrv0.axis0.controller.config.pos_int_gain = 0.0
+odrv0.axis0.controller.config.vel_gain = 0.00006
+odrv0.axis0.controller.config.vel_integrator_gain = 0.0
+odrv0.save_configuration()
+
+odrv0.axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+
+# torque
+# goes overscale at 1.6A 200g 85mm
+# > 0.2 * 9.8 * 0.085 
+# > 0.17 Nm
+
+# Tare with 200g to start with, up current limit to 20A
+# 290g at 4.2A
+# 0.29 * 9.8 * 0.085 
+# 0.24 Nm
+
+
+# this has to be set to 5.51 / (pole_pairs * kv)
+
+
+# Nameless n2830 1000kv
+
+odrv0.axis0.requested_state =AXIS_STATE_MOTOR_CALIBRATION
+odrv0.axis0.controller.config.control_mode = CTRL_MODE_VELOCITY_CONTROL
+odrv0.axis0.sensorless_estimator.config.pm_flux_linkage = 0.000787
+odrv0.axis0.config.spin_up_target_vel=1000
+
+
+# ldpower, nice looking 2814-510kv but case as large as 35s
+
+odrv0.axis0.requested_state =AXIS_STATE_MOTOR_CALIBRATION
+odrv0.axis0.controller.config.control_mode = CTRL_MODE_VELOCITY_CONTROL
+odrv0.axis0.sensorless_estimator.config.pm_flux_linkage = 0.00154
+odrv0.axis0.config.spin_up_target_vel=1000
+
+
+# wont calibrate, possibly res too low?
+# This https://discourse.odriverobotics.com/t/issues-with-smaller-motors/449
+# may be relevant
+odrv0.axis0.motor.config.calibration_current = 5
+odrv0.save_configuration()
+odrv0.reboot()
+odrv0.axis0.requested_state =AXIS_STATE_MOTOR_CALIBRATION
+# yes, this worked
+
+odrv0.axis0.controller.config.vel_gain = 0.05
+odrv0.axis0.requested_state = AXIS_STATE_SENSORLESS_CONTROL
+odrv0.axis0.controller.vel_setpoint=1000
+
+# works quite smoothly
+
+# propdrive 35-36-910kv
+
+odrv0.axis0.requested_state =AXIS_STATE_MOTOR_CALIBRATION
+odrv0.axis0.controller.config.control_mode = CTRL_MODE_VELOCITY_CONTROL
+odrv0.axis0.sensorless_estimator.config.pm_flux_linkage = 0.000864
+odrv0.axis0.config.spin_up_target_vel=1000
+odrv0.axis0.controller.config.vel_gain = 0.05
+odrv0.save_configuration()
+odrv0.reboot()
+
+odrv0.axis0.requested_state = AXIS_STATE_SENSORLESS_CONTROL
+odrv0.axis0.controller.vel_setpoint=3000
+
+
+# Turnigy with encoder
+odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+odrv0.axis0.controller.config.control_mode = CTRL_MODE_POSITION_CONTROL
+odrv0.axis0.encoder.config.pre_calibrated = True
+odrv0.axis0.motor.config.pre_calibrated = True
+odrv0.axis0.controller.config.pos_gain = 160
+odrv0.axis0.controller.config.pos_int_gain = 0.0
+odrv0.axis0.controller.config.vel_gain = 0.00006
+odrv0.axis0.controller.config.vel_integrator_gain = 0.0
+odrv0.axis0.controller.config.vel_limit = 1e6
+odrv0.save_configuration()
+
+odrv0.axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+
+# doesnt seem to keep calibration over reboots
+# needs an encoder offset cal
+
+
+
+
+#=============================
+# Driver for machinekit on rpi to interface to FPGA board
+#=============================
+
+# SMI device is not accessible from user - good page here on udev rules:
+# https://unix.stackexchange.com/questions/111593/allow-non-root-user-to-read-write-dev-files
+
+udevadm info -a -n /dev/smi
+
+Udevadm info starts with the device specified by the devpath and then
+walks up the chain of parent devices. It prints for every device
+found, all possible attributes in the udev rules key format.
+A rule to match, can be composed by the attributes of the device
+and the attributes from one single parent device.
+
+  looking at device '/devices/virtual/bcm2835-smi-dev/smi':
+    KERNEL=="smi"
+    SUBSYSTEM=="bcm2835-smi-dev"
+    DRIVER==""
+
+echo 'SUBSYSTEM=="bcm2835-smi-dev", GROUP="gpio", MODE="0660"' |sudo tee -a /etc/udev/rules.d/99-com.rules
+
+# Now fpgacom works
+cd ~/new_world/printable_electronics/rpi/rpi_utils
+./fpgacom
+
+# LEDs run in chain
+
+# Hacking a machinekit HAL driver
+# In github repo forked from machinekit
+cd /Network/simonj/new_world
+git clone git@github.com:siteks/machinekit.git machinekit_rpi
+
+# Working in src/hal/drivers/hal_smifpga.c
+# Using pointers from https://machinekoder.com/machinekit-on-the-c-h-i-p-9-computer/
+
+# Compile on Rpi
+cd machinekit_rpi
+debian/configure -pr
+sudo mk-build-deps -ir
+cd src
+./autogen.sh
+./configure --with-platform-raspberry
+make 
+sudo make setuid
+
+simonj@raspberrypi:~/new_world/machinekit_rpi/src$ halrun -I
+msgd:0 stopped
+rtapi:0 stopped
+rtapi_msgd command:  /home/simonj/new_world/machinekit_rpi/libexec/rtapi_msgd --instance=0 --rtmsglevel=1 --usrmsglevel=1 --halsize=524288
+rtapi_app command:  /home/simonj/new_world/machinekit_rpi/libexec/rtapi_app_rt-preempt --instance=0
+halcmd: cant connect to rtapi_app: -1 (uri= uuid=a42c8c6b-4025-4f83-ba28-dad21114744a): rtapi_rpc(): reply timeout
+
+*** Error in `halcmd': corrupted size vs. prev_size: 0x005543b8 ***
+/home/simonj/new_world/machinekit_rpi/scripts/realtime: line 215: 18034 Aborted                 halcmd ping
+halcmd: cant connect to rtapi_app: -1 (uri= uuid=a42c8c6b-4025-4f83-ba28-dad21114744a): rtapi_rpc(): reply timeout
+
+*** Error in `halcmd': corrupted size vs. prev_size: 0x018013b8 ***
+/home/simonj/new_world/machinekit_rpi/scripts/halrun: line 150: 18041 Aborted                 $INTERACTIVE
+halcmd: cant connect to rtapi_app: -1 (uri= uuid=a42c8c6b-4025-4f83-ba28-dad21114744a): rtapi_rpc(): reply timeout
+
+*** Error in `halcmd': corrupted size vs. prev_size: 0x018c63b8 ***
+/home/simonj/new_world/machinekit_rpi/scripts/halrun: line 152: 18046 Aborted                 halcmd stop
+halcmd: cant connect to rtapi_app: -1 (uri= uuid=a42c8c6b-4025-4f83-ba28-dad21114744a): rtapi_rpc(): reply timeout
+
+*** Error in `halcmd': corrupted size vs. prev_size: 0x020243b8 ***
+/home/simonj/new_world/machinekit_rpi/scripts/realtime: line 308: 18078 Aborted                 halcmd shutdown
+ERROR:  msgd:0 failed to exit on its own; sending SIGTERM
+
+
+
+#
+#
+# Smaller command to reproduce
+
+DEBUG=5 realtime restart
+
+# Still failing...
+# Maybe wrong runtime?
+# http://www.machinekit.io/docs/getting-started/APT-packages-raspbian/
+# Hmm, refers to jessie, surely its stretch now?
+# Ah http://www.machinekit.io/docs/getting-started/APT-packages-stretch/
+
+sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 43DDF224
+sudo sh -c \
+  "echo 'deb http://deb.machinekit.io/debian stretch main' > \
+  /etc/apt/sources.list.d/machinekit.list"
+sudo apt-get update
+
+
+# Installed from packages, fails in same way.
+
+
+#############################
+# Starting from scratch
+#############################
+
+# Get image
+# https://downloads.raspberrypi.org/raspbian_lite_latest
+# Use etcher, select zipped image 2018-06-27-raspbian-stretch-lite.zip
+
+# to /boot/config.txt 
+dtoverlay=smi
+dtoverlay=smi-dev
+
+# Add 'ssh' to /boot
+cd /Volumes/boot
+touch ssh
+cd /
+diskutil list
+diskutil eject /dev/disk2
+
+# eject and boot rpi
+ssh pi@192.168.0.20
+#password: raspberry
+
+sudo adduser simonj --uid 501
+echo "192.168.0.32:/volume1/simonj /home/simonj nfs defaults,vers=3,rsize=8192,wsize=8192,timeo=10,intr 0 0" |sudo tee -a /etc/fstab
+sudo adduser simonj adm
+sudo adduser simonj sudo
+sudo adduser simonj dialout
+sudo adduser simonj cdrom
+sudo adduser simonj audio
+sudo adduser simonj video
+
+sudo adduser simonj plugdev
+sudo adduser simonj games
+sudo adduser simonj users
+sudo adduser simonj input
+sudo adduser simonj netdev
+sudo adduser simonj spi
+sudo adduser simonj gpio
+sudo adduser simonj i2c
+
+# log out then in as simonj
+ssh 192.168.0.20
+sudo raspi-config
+# advanced options->expand filesystem
+# reboot
+
+sudo apt-get install dirmngr
+sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 43DDF224
+sudo sh -c "echo 'deb http://deb.machinekit.io/debian stretch main' > /etc/apt/sources.list.d/machinekit.list"
+sudo apt-get update
+sudo apt-get install machinekit-posix
+
+# This should install for a non-rt kernel.. doing this to check that this works ok before installing RT kernel.
+simonj@raspberrypi:~$ halrun -I
+msgd:0 stopped
+rtapi:0 stopped
+rtapi_msgd command:  /usr/libexec/linuxcnc/rtapi_msgd --instance=0 --rtmsglevel=1 --usrmsglevel=1 --halsize=524288
+rtapi_app command:  /usr/libexec/linuxcnc/rtapi_app_posix --instance=0
+halcmd: 
+
+
+# Ok, this works!
+
+
+# Seems like a real lack of prebuild realtime kernels - found this distro though, up to date
+# https://github.com/guysoft/RealtimePi
+wget http://unofficialpi.org/Distros/RealtimePi/2018-06-12_2018-04-18-realtimepi-stretch-lite-0.3.zip
+# Use etcher to flash
+
+# to /boot/config.txt 
+dtoverlay=smi
+dtoverlay=smi-dev
+
+# ssh aleady exists
+# eject and boot rpi
+ssh pi@192.168.0.20
+#password: raspberry
+
+sudo adduser simonj --uid 501
+echo "192.168.0.32:/volume1/simonj /home/simonj nfs defaults,vers=3,rsize=8192,wsize=8192,timeo=10,intr 0 0" |sudo tee -a /etc/fstab
+sudo adduser simonj adm
+sudo adduser simonj sudo
+sudo adduser simonj dialout
+sudo adduser simonj cdrom
+sudo adduser simonj audio
+sudo adduser simonj video
+sudo adduser simonj plugdev
+sudo adduser simonj games
+sudo adduser simonj users
+sudo adduser simonj input
+sudo adduser simonj netdev
+sudo adduser simonj spi
+sudo adduser simonj i2c
+
+# log out then in as simonj
+ssh 192.168.0.20
+sudo raspi-config
+# advanced options->expand filesystem
+# reboot
+
+# edit .bashrc, hostname is now 'realtimepi', so that correct (or no) rip script run
+sudo apt-get install dirmngr
+sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 43DDF224
+sudo sh -c "echo 'deb http://deb.machinekit.io/debian stretch main' > /etc/apt/sources.list.d/machinekit.list"
+sudo apt-get update
+sudo apt-get install machinekit-rt-preempt
+
+# woohoo! works!
+# Now for compiled version.. need to remove packaged version
+sudo apt-get remove --purge machinekit
+sudo apt-get install libczmq-dev python-zmq libjansson-dev pkg-config libwebsockets-dev python-pyftpdlib cython bwidget lsb-release
+
+# Put the rip back into .bashrc, log out and back in and try compiled version:
+simonj@realtimepi:~$ which machinekit
+/home/simonj/new_world/machinekit_rpi/bin/machinekit
+simonj@realtimepi:~$ halrun -I
+msgd:0 stopped
+rtapi:0 stopped
+rtapi_msgd command:  /home/simonj/new_world/machinekit_rpi/libexec/rtapi_msgd --instance=0 --rtmsglevel=1 --usrmsglevel=1 --halsize=524288
+rtapi_app command:  /home/simonj/new_world/machinekit_rpi/libexec/rtapi_app_rt-preempt --instance=0
+halcmd: 
+
+
+# works!!
+
+halrun -I
+newthread servo-thread 100000
+loadrt siggen num_chan=1
+addf siggen.0.update                servo-thread
+setp siggen.0.frequency 100
+loadusr halscope
+start
+show
+
+
+#--------------------------------
+# back to building machinekit
+#--------------------------------
+
+# need to add hal_smifpga to two places in src/Makefile
+diff --git a/src/Makefile b/src/Makefile
+index 897e12007..50fcfd202 100755
+--- a/src/Makefile
++++ b/src/Makefile
+@@ -1385,6 +1385,8 @@ obj-$(CONFIG_HAL_GPIO) += hal_gpio.o
+ hal_gpio-objs := hal/drivers/hal_gpio.o hal/drivers/cpuinfo.o
+ obj-$(CONFIG_HAL_SPI) += hal_spi.o
+ hal_spi-objs := hal/drivers/hal_spi.o
++obj-$(CONFIG_HAL_SMIFPGA) += hal_smifpga.o
++hal_smifpga-objs := hal/drivers/hal_smifpga.o
+ endif
+ 
+ ifdef TARGET_PLATFORM_SOCFPGA
+@@ -1866,6 +1868,7 @@ endif
+ ifdef TARGET_PLATFORM_RASPBERRY
+ $(RTLIBDIR)/hal_gpio$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_gpio-objs))
+ $(RTLIBDIR)/hal_spi$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_spi-objs))
++$(RTLIBDIR)/hal_smifpga$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_smifpga-objs))
+ endif
+ 
+# needed to redo some dependency stuff
+debian/configure -pr
+sudo apt-get install git dpkg-dev
+sudo apt-get install --no-install-recommends devscripts equivs
+sudo mk-build-deps -ir
+cd src
+./autogen.sh
+./configure --with-platform-raspberry
+make
+
+# needed to hack depends dir..
+
+# Runs and loads component, but if the write function linked to thread, falls over
+# Tried with 1ms, still doesnt work
+
+# No log information:
+# http://www.machinekit.io/docs/code/Debugging-RT-components/
+# Tried: as hinted after build
+
+make
+sudo make setuid
+sudo cp rtapi/rsyslogd-linuxcnc.conf /etc/rsyslog.d/linuxcnc.conf
+sudo service rsyslog restart
+sudo cp rtapi/shmdrv/limits.d-machinekit.conf /etc/security/limits.d/machinekit.conf
+
+cd ..
+DEBUG=5 halrun -I test.hal
+
+#------------------------------------------------------------------------
+# Running omni wheel assembly
+#------------------------------------------------------------------------
+
+# Turningy motor with 20 tooth driving 60mm omni wheel with 60 tooth
+# Encoder is 32768 cpr
+# Velocity is in counts per second
+# v = 1e6 = 30.5 rps = 1831 rpm
+# Velocity of wheel is 610 rpm
+# Ground velocity is cos(30) * 30.5 * 1/3 * pi * 60e-3 (2/3 because holonomic equilateral triangle form)
+# v = 1.65 ms^-1 
+# Ok, reasonable
+
+
+#------------------------------------------------------------------------
+# FPGA control
+#------------------------------------------------------------------------
+#
+# Have machinekit/hal send position updates at servo thread rate
+# to fpga. FPGA forwards these as serial command strings to ODrive.
+#
+# 32 bit signed position +/- 2.15e9, so 10 digits
+# Command for position is:
+# p <motor> <position>\n
+#
+# A total of 16 characters.
+# At baud rate of 115200 = 1.39ms per command
+#
+# Weird missing, out of sync chars, realised its because
+# fpga clock is 12MHz, and the SMI interface must be operating at a much
+# higher rate, need a PLL.
+# https://github.com/mystorm-org/BlackIce-II/wiki/PLLs
+# has examples, eg icepll generates instatantiable verilog
+icepll -i 12 -o 100 -m -f pll.v
+
+# Hmm, arachne-pnr fails with :
+place_constraints...
+fatal error: failed to place: placed 0 PLLs of 1 / 1
+
+
+# Needs a _PAD pll
+#
+#
+
+
+
+
+#------------------------------------------------------------------------
+# More odrive stuff
+#------------------------------------------------------------------------
+#
+# How to use liveplotter:
+#
+# start_liveplotter(lambda: [odrv0.axis0.encoder.pll_vel])
+#
+#
+# LDpower with wheel bracket
+odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+
+# Had to run a few reboots then do motor calibration separately before this worked
+# maybe this?:
+odrv0.axis0.motor.config.resistance_calib_max_voltage = 2.0
+#
+
+odrv0.axis0.controller.config.control_mode = CTRL_MODE_VELOCITY_CONTROL
+odrv0.axis0.encoder.config.pre_calibrated = True
+odrv0.axis0.motor.config.pre_calibrated = True
+odrv0.axis0.controller.config.pos_gain = 50
+odrv0.axis0.controller.config.pos_int_gain = 0.0
+odrv0.axis0.controller.config.vel_gain = 0.000018
+odrv0.axis0.controller.config.vel_integrator_gain = 0.0
+odrv0.axis0.controller.config.vel_limit = 5e6
+odrv0.save_configuration()
+
+odrv0.axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+odrv0.axis0.controller.vel_setpoint = 200000
+
+# 2ms-1 with 60mm wheels and three omni
+# 2 * 32768 * 5 / (0.06 * pi * 0.866) = 
+
+
+
+
+# Turnigy air l03730a 1000kv
+odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+
+# This seems to be a pretty shit motor, very coggy. Running velocity mode
+# you can stall it then it gets stuck in the cogs.
+
+
+# propdrive 3536 910kv
+odrv0.axis0.requested_state = AXIS_STATE_MOTOR_CALIBRATION
+odrv0.axis0.sensorless_estimator.config.pm_flux_linkage = 0.000864
+odrv0.axis0.controller.config.control_mode = CTRL_MODE_VELOCITY_CONTROL
+odrv0.axis0.controller.config.vel_gain = 0.03
+odrv0.axis0.controller.vel_setpoint = 2000
+
+
+# spins quite nicely at speed and slowly
+# With encoder:
+odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+odrv0.axis0.controller.config.control_mode = CTRL_MODE_VELOCITY_CONTROL
+odrv0.axis0.controller.config.pos_gain = 50
+odrv0.axis0.controller.config.vel_gain = 0.000018
+odrv0.axis0.controller.config.vel_limit = 5e6
+odrv0.axis0.controller.config.vel_integrator_gain = 0.001
+odrv0.save_configuration()
+
+odrv0.axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+odrv0.axis0.controller.vel_setpoint = 200000
+
+
+# LDPower 810kv with encoder
+
+
+#-----------------------------------------------
+# to switch between odrive and sdrive, change CONFIG_BOARD_VERSION in tup.config
+#-----------------------------------------------
+
+odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+odrv0.axis0.encoder.config.pre_calibrated = True
+odrv0.axis0.motor.config.pre_calibrated = True
+odrv0.axis0.encoder.config.cpr = 32768
+odrv0.axis0.encoder.config.use_index = False
+odrv0.axis0.controller.config.control_mode = CTRL_MODE_VELOCITY_CONTROL
+odrv0.axis0.controller.config.pos_gain = 50
+odrv0.axis0.controller.config.vel_gain = 0.000018
+odrv0.axis0.controller.config.vel_limit = 5e6
+odrv0.axis0.controller.config.vel_integrator_gain = 0.001
+odrv0.save_configuration()
+
+
+# m0_enc_z and m1_enc_z have changed from 3.4 to 3.5. Sdrive uses 
+# the 3.4 pins
+#               3.4             3.5 
+#   m0_enc_z    pa15    50      pc9     40
+#   m1_enc_z    pb3     55      pc15    4
+#
+
+
+
+#-----------------------------------------------
+# Step dir interface
+#-----------------------------------------------
+#           sdrive      odrive3.5
+# step0     gpio1       gpio1
+# dir0      gpio2       gpio2
+#
+# step1     gpio3       gpio7
+# dir1      gpio4       gpio8
+
+#   on fpga
+#   ppd0    step0
+#   ppd1    dir0
+#   ppd2    step1
+#   ppd3    dir1
+#   ppd4    step2
+#   ppd5    dir2
+
+odrv0.erase_configuration()
+odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+odrv0.axis0.encoder.config.pre_calibrated = True
+odrv0.axis0.motor.config.pre_calibrated = True
+odrv0.axis0.encoder.config.cpr = 32768
+odrv0.axis0.encoder.config.use_index = False
+odrv0.axis0.controller.config.control_mode = CTRL_MODE_POSITION_CONTROL
+odrv0.axis0.controller.config.pos_gain = 50
+odrv0.axis0.controller.config.vel_gain = 0.000018
+odrv0.axis0.controller.config.vel_limit = 5e6
+odrv0.axis0.controller.config.vel_integrator_gain = 0.0
+odrv0.axis0.controller.config.pos_int_gain = 0.0
+odrv0.axis0.config.counts_per_step = 10
+odrv0.axis0.config.startup_closed_loop_control = True
+
+odrv0.axis1.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+odrv0.axis1.encoder.config.pre_calibrated = True
+odrv0.axis1.motor.config.pre_calibrated = True
+odrv0.axis1.encoder.config.cpr = 32768
+odrv0.axis1.encoder.config.use_index = False
+odrv0.axis1.controller.config.control_mode = CTRL_MODE_POSITION_CONTROL
+odrv0.axis1.controller.config.pos_gain = 50
+odrv0.axis1.controller.config.vel_gain = 0.000018
+odrv0.axis1.controller.config.vel_limit = 5e6
+odrv0.axis1.controller.config.vel_integrator_gain = 0.0
+odrv0.axis1.controller.config.pos_int_gain = 0.0
+odrv0.axis1.config.counts_per_step = 10
+odrv0.axis1.config.startup_closed_loop_control = True
+odrv0.save_configuration()
+
+odrv0.axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+odrv0.axis0.controller.pos_setpoint  = 1000
+
+#-------------------------------------
+# Connect dualshock 3 to rpi for controlling robot
+#---------------------------------------
+# Recognised straight away
+simonj@realtimepi:~/new_world/machinekit_rpi/src$ lsusb
+Bus 001 Device 004: ID 054c:0268 Sony Corp. Batoh Device / PlayStation 3 Controller
+Bus 001 Device 003: ID 0424:ec00 Standard Microsystems Corp. SMSC9512/9514 Fast Ethernet Adapter
+Bus 001 Device 002: ID 0424:9514 Standard Microsystems Corp. SMC9514 Hub
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+
+# This page is useful for overview https://wiki.archlinux.org/index.php/Gamepad
+#
+# Use hal_input component
+#
+#
+# Kinematics pretty simple:
+# v1    -s0     c0      1       vx
+# v2 =  -s120   c120    1   *   vy
+# v3    -s240   c240    1       Rw
+
+#---------------------------------------------
+# Anticogging
+#---------------------------------------------
+#
+# Hacked code so fixed array of 8th size for cpr (4096)
+# Adjusted all refs to include >> 3
+odrv0.axis0.controller.start_anticogging_calibration()
+
+# start_liveplotter(lambda: [odrv0.axis0.encoder.pos_estimate])
+
+odrv0.axis0.controller.config.vel_gain = 0.0001
+odrv0.axis0.controller.config.pos_integrator_gain = 0.1
+# Holds position well, but anticogging actually uses the vel integrator current..
+
+odrv0.axis0.controller.config.vel_gain = 0.0001
+odrv0.axis0.controller.config.pos_integrator_gain = 0
+odrv0.axis0.controller.config.vel_integrator_gain = 0.005
+odrv0.axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+odrv0.axis0.controller.start_anticogging_calibration()
+
+
+#------------------------------------
+# RPi read only filesystem
+#------------------------------------
+# https://yagrebu.net/unix/rpi-overlay.md
+# Simple instructions, works nicely!
+#
+sudo overctl -w
+# to make rw at next reboot
+sudo overctl -r
+# to make ro at next reboot
+
+#------------------------------------
+# Rpi zero with camera
+#------------------------------------
+# https://downloads.raspberrypi.org/raspbian_lite_latest
+#
+
+
+
+
+#------------------------------------
+# Bluetooth dongle on rpi
+#------------------------------------
+# recognised ok
+# Used instructions https://github.com/RetroPie/RetroPie-Setup/wiki/PS3-Controller
+# Starting at 'For older versions of retropie'
+#
+# Hmm, fails to detect with 'sudo sixad --start
+# Needed to make bluetooth discoverable:
+
+sudo apt-get install bluetooth blueman bluez-hcidump checkinstall libusb-dev libbluetooth-dev joystick pkg-config
+wget http://www.pabr.org/sixlinux/sixpair.c
+gcc -o sixpair sixpair.c -lusb
+wget http://sourceforge.net/projects/qtsixa/files/QtSixA%201.5.1/QtSixA-1.5.1-src.tar.gz
+tar xfvz QtSixA-1.5.1-src.tar.gz
+wget https://bugs.launchpad.net/qtsixa/+bug/1036744/+attachment/3260906/+files/compilation_sid.patch
+patch ~/QtSixA-1.5.1/sixad/shared.h < compilation_sid.patch
+cd QtSixA-1.5.1/sixad
+make
+sudo mkdir -p /var/lib/sixad/profiles
+sudo checkinstall
+
+# add these to /etc/rc.local
+sudo hciconfig hci0 up
+sudo hciconfig hci0 piscan
+
+# test with
+sudo sixad --start
+
+# install with:
+sudo update-rc.d sixad defaults
+
+#
+# make hciconfig work without sudo
+# https://bbs.archlinux.org/viewtopic.php?id=215080
+sudo setcap 'cap_net_raw,cap_net_admin+eip' `which hciconfig`
+
+
+# Seems to only connect when hci name is 'realtimepi' but it sometimes comes up
+# as 'CSR - bc4'
+
+# This sequence seems to work quite well..
+hciconfig hci0 down
+hciconfig hci0 reset
+hciconfig hci0 up
+hciconfig hci0 name realtimepi
+hciconfig hci0 pscan
+hciconfig -a
+
+while [ ! -c /dev/input/js0 ]
+do
+	echo "No controller attached yet.."
+	sleep 1
+done
+echo "Got controller"
+
+# but not in .bashrc. Trying the systemd approach, want to learn it anyway..
+#
+# Show all targets
+sudo systemctl list-units --type=target
+
+#------------------------------------
+# Bluetooth not starting up properly
+simonj@realtimepi:~ $ sudo systemctl status bluetooth.service
+● bluetooth.service - Bluetooth service
+   Loaded: loaded (/lib/systemd/system/bluetooth.service; enabled; vendor preset: enabled)
+   Active: failed (Result: signal) since Fri 2018-10-12 08:14:36 UTC; 2min 12s ago
+     Docs: man:bluetoothd(8)
+  Process: 596 ExecStart=/usr/lib/bluetooth/bluetoothd (code=killed, signal=KILL)
+ Main PID: 596 (code=killed, signal=KILL)
+   Status: "Running"
+
+Oct 12 08:14:35 realtimepi bluetoothd[596]: Bluetooth daemon 5.43
+Oct 12 08:14:35 realtimepi systemd[1]: Started Bluetooth service.
+Oct 12 08:14:35 realtimepi bluetoothd[596]: Starting SDP server
+Oct 12 08:14:35 realtimepi bluetoothd[596]: Bluetooth management interface 1.14 initialized
+Oct 12 08:14:35 realtimepi bluetoothd[596]: Failed to obtain handles for "Service Changed" characteristic
+Oct 12 08:14:35 realtimepi bluetoothd[596]: Sap driver initialization failed.
+Oct 12 08:14:35 realtimepi bluetoothd[596]: sap-server: Operation not permitted (1)
+Oct 12 08:14:36 realtimepi systemd[1]: bluetooth.service: Main process exited, code=killed, status=9/KILL
+Oct 12 08:14:36 realtimepi systemd[1]: bluetooth.service: Unit entered failed state.
+Oct 12 08:14:36 realtimepi systemd[1]: bluetooth.service: Failed with result 'signal'.
+
+
+# https://www.raspberrypi.org/forums/viewtopic.php?t=191073
+sudo sed -i 's|^ExecStart=/usr/lib/bluetooth/bluetoothd$|ExecStart=/usr/lib/bluetooth/bluetoothd --noplugin=sap|' /lib/systemd/system/bluetooth.service
+
+# Enabled watchdog and restart on failure..
+# uncomment  WatchdogSec and Restart=on-failure
+#
+simonj@realtimepi:~ $ more /lib/systemd/system/bluetooth.service
+[Unit]
+Description=Bluetooth service
+Documentation=man:bluetoothd(8)
+ConditionPathIsDirectory=/sys/class/bluetooth
+
+[Service]
+Type=dbus
+BusName=org.bluez
+ExecStart=/usr/lib/bluetooth/bluetoothd --noplugin=sap
+NotifyAccess=main
+WatchdogSec=10
+Restart=on-failure
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+LimitNPROC=1
+ProtectHome=true
+ProtectSystem=full
+
+[Install]
+WantedBy=bluetooth.target
+Alias=dbus-org.bluez.service
+
+
+
+
+# Ok, this seems to start up ok now, but only in DOWN mode.. hmm, that seemed to change
+# before my eyes, ran hciconfig -a again and now shows UP RUNNING.. try reboot again..
+# .. does eventually come up
+
+simonj@realtimepi:/lib/systemd/system $ cat /lib/systemd/system/robot.service
+[Unit]
+Description=Robot service
+After=multi-user.target
+
+[Service]
+ExecStart=/bin/bash /home/simonj/startmk
+WorkingDirectory=/home/simonj
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+User=simonj
+
+[Install]
+WantedBy=multi-user.target
+
+# halrun doesnt continue unless it is connected to an interactive session, and there doesn't
+# seem to be an easy way to stop it exitting otherwise. Added small python script
+# that uses subprocess to start halrun, with stdin connected to a pipe, then never exits.
+
+simonj@realtimepi:~ $ more startmk
+#!/bin/bash
+
+
+hciconfig hci0 down
+hciconfig hci0 reset
+hciconfig hci0 up
+hciconfig hci0 name realtimepi
+hciconfig hci0 pscan
+hciconfig -a
+
+while [ ! -c /dev/input/js0 ]
+do
+	echo "No controller attached yet.."
+	sleep 1
+done
+echo "Got controller"
+
+source /home/simonj/new_world/machinekit_rpi/scripts/rip-environment
+/home/simonj/starthal
+
+simonj@realtimepi:~ $ more starthal
+#!/usr/bin/env python
+import time
+import subprocess
+x=subprocess.Popen('DEBUG=5 halrun -I /home/simonj/new_world/machinekit_rpi/test_step.hal', shell=True, stdin=subprocess.PIPE, 
+stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+while True:
+	time.sleep(1)
+
+# can try out the service with
+sudo systemctl start robot.service
+sudo systemctl stop robot.service
+
+# The make default on boot with 
+sudo systemctl enable robot.service
+
+
+
+
+
+#------------------------------------
+# Rpi zero with camera over uvc
+#------------------------------------
+# https://downloads.raspberrypi.org/raspbian_lite_latest
+#
+# ethernet gadget
+# https://learn.adafruit.com/turning-your-raspberry-pi-zero-into-a-usb-gadget/ethernet-gadget
+#
+# Add to /boot/config.txt
+enable_uart=1
+dtoverlay=dwc2
+
+# Add to cmdline.txt
+modules-load=dwc2,g_ether
+
+# observe boot on serial port (pins 8, 10)
+# comes up with IP address 169.254.55.50
+# and can ping this
+# change /etc/network/interfaces:
+auto lo usb0
+iface lo inet loopback
+allow-hotplug usb0
+iface usb0 inet static
+        address 192.168.2.2
+        netmask 255.255.255.0
+        gateway 192.168.2.1
+pi@raspberrypi:~ $ 
+
+# Change network config on mac for RNDIS gadget to:
+# Manual
+# ip address 192.168.2.1/255.255.255.0/192.168.2.1
+
+# Change 'sharing', select 'Internet sharing' but not tickbox,
+# then just tick From ethernet to RNDIS
+#
+# Hmm, this only works if you use 192.168.2.0 subnet, which is the default
+# for what OSX internet sharing creates
+
+sudo apt update
+sudo raspi-config
+# enable camera
+# check with
+vcgencmd get_camera
+# should say:
+supported=1 detected=1
+
+# uv4l streaming https://medium.com/home-wireless/headless-streaming-video-with-the-raspberry-pi-zero-w-and-raspberry-pi-camera-38bef1968e1
+# https://www.linux-projects.org/uv4l/installation/
+
+curl http://www.linux-projects.org/listing/uv4l_repo/lpkey.asc | sudo apt-key add -
+echo 'deb http://www.linux-projects.org/listing/uv4l_repo/raspbian/stretch stretch main' |sudo tee -a /etc/apt/sources.list
+
+
+#------------------------------------
+# Machinekit GUI, OpenGL etc
+#------------------------------------
+sudo overctl -w
+sudo apt-get update
+sudo apt-get install --no-install-recommends lxde
+sudo apt-get install xorg raspberrypi-ui-mods rpi-chromium-mods
+# hmm, this fails while trying to do stuff to the /boot/initrd.img
+# After that, system is corrupt and no longer boots
+
+# Plug into linux PC
+mkdir robot
+cd robot
+sudo mount /dev/sdb2 /mnt
+sudo cp -r /mnt/home/simonj .
+
+
+# Reburn realtimepi 
+# boot
+ssh pi@192.168.0.20 #password:raspberry
+sudo raspi-config
+# advanced options->gl driver->gl (fake kms)
+# advanced options->expand filesystem
+# finish, reboot
+
+# Installing X on raspbian-lite https://www.raspberrypi.org/forums/viewtopic.php?t=133691
+sudo apt-get update
+sudo apt-get upgrade
+sudo apt-get clean
+sudo reboot
+
+sudo apt-get install --no-install-recommends xserver-xorg
+sudo apt-get install --no-install-recommends xinit
+sudo apt-get install lxde-core lxappearance
+
+# startx fails with permissions on /dev/tty0
+# raspi-config now complains on selecting gl that missing libgl1-mesa-dri
+sudo apt-get install libgl1-mesa-dri
+
+# This fixes permissions:
+sudo apt-get install  --no-install-recommends xserver-xorg-legacy
+# change 'allowed_users=console' to' allowed_users=anybody'
+sudo vi /etc/X11/Xwrapper.config
+
+
+# now can do:
+startx
+
+# or
+X
+# and in another terminal
+DISPLAY=:0 xterm
+# and it pops up
+
+# Now try with OpenGL
+glxgears
+44 frames in 5.0 seconds =  8.775 FPS
+134 frames in 5.0 seconds = 26.642 FPS
+132 frames in 5.0 seconds = 26.296 FPS
+
+
+# change to opengl driver (fake kms), can no longer run X as non-root
+pi@realtimepi:~ $ DISPLAY=:0 glxgears
+libGL error: MESA-LOADER: failed to retrieve device information
+MESA-LOADER: failed to retrieve device information
+MESA-LOADER: failed to retrieve device information
+Running synchronized to the vertical refresh.  The framerate should be
+approximately the same as the monitor refresh rate.
+254 frames in 5.0 seconds = 50.772 FPS
+250 frames in 5.0 seconds = 50.000 FPS
+250 frames in 5.0 seconds = 50.000 FPS
+250 frames in 5.0 seconds = 50.000 FPS
+# Dows run supersmooth though
+
+# Seems to be a problem with the gl driver and permissions.
+# Making automatic login to GUI seems to fix, but not a nice solution
+#
+
+# Machinekit dependencies:
+Reading package lists... Done
+sudo apt-get install libczmq-dev python-zmq libjansson-dev pkg-config libwebsockets-dev  python-pyftpdlib cython bwidget lsb-release libprotobuf-dev libavahi-client-dev python-tk libboost-all-dev
+
+#
+# somehow seem to have lost realtime..
+
+      
+
+
+sudo apt-get install --no-install-recommends xserver-xorg
+sudo apt-get install --no-install-recommends xinit
+sudo apt-get install xterm
+
+
+#------------------------------------
+# Machinekit GUI, OpenGL etc, from scratch, with rpi 3b+, allocated to 192.168.0.21 in router
+#------------------------------------
+
+wget http://unofficialpi.org/Distros/RealtimePi/2018-06-12_2018-04-18-realtimepi-stretch-lite-0.3.zip
+# Use etcher to flash
+
+# to /boot/config.txt 
+dtoverlay=smi
+dtoverlay=smi-dev
+
+
+
+# ssh aleady exists
+# eject and boot rpi
+ssh pi@192.168.0.21
+#password: raspberry
+
+sudo adduser simonj --uid 501
+sudo mkdir /srv/simonj
+echo "192.168.0.32:/volume1/simonj /srv/simonj nfs defaults,vers=3,rsize=8192,wsize=8192,timeo=10,intr 0 0" |sudo tee -a /etc/fstab
+sudo adduser simonj adm
+sudo adduser simonj sudo
+sudo adduser simonj dialout
+sudo adduser simonj cdrom
+sudo adduser simonj audio
+sudo adduser simonj video
+sudo adduser simonj plugdev
+sudo adduser simonj games
+sudo adduser simonj users
+sudo adduser simonj input
+sudo adduser simonj netdev
+sudo adduser simonj spi
+sudo adduser simonj i2c
+
+# Log out and back in as simonj
+# Install machinekit development environment
+sudo apt-get install dirmngr
+sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 43DDF224
+sudo sh -c "echo 'deb http://deb.machinekit.io/debian stretch main' > /etc/apt/sources.list.d/machinekit.list"
+sudo apt-get update
+sudo apt-get install libczmq-dev python-zmq libjansson-dev pkg-config libwebsockets-dev python-pyftpdlib cython bwidget lsb-release libprotobuf-dev autoconf autogen uuid-runtime protobuf-compiler liburiparser-dev uuid-dev libavahi-client-dev libmodbus-dev libusb-1.0-0-dev libglib2.0-dev gtk2.0 libgtk2.0-dev tcl8.6-dev tk-dev libreadline-dev libboost-all-dev libglu1-mesa-dev libxmu-dev pigpio libxml2-dev  python-lxml
+sudo apt-get install git dpkg-dev
+sudo apt-get install --no-install-recommends devscripts equivs
+
+# Get the rest of the runtime packages, apparently easiest to do this way..
+sudo apt-get install machinekit
+sudo apt-get remove --purge machinekit
+
+# Install X server
+sudo apt-get install --no-install-recommends xserver-xorg
+sudo apt-get install --no-install-recommends xinit
+sudo apt-get install xterm
+sudo apt-get install x11-xserver-utils
+sudo apt-get install lightdm
+
+sudo raspi-config 
+# boot as gui with autologin
+# set GL driver to full, not fake, the fake one seems incompatible with SMI???
+# With no window manager, this just gives a plain X with a single terminal, just what I want
+
+ln -s /srv/simonj/new_world .
+cd new_world/machinekit_rpi
+source scripts/rip_environment
+DISPLAY=:0 machinekit configs/sim/axis_mm.ini
+
+# Works!! Trying gl acceleration..
+sudo apt-get install mesa-utils
+DISPLAY=:0 glxgears
+
+# Screen blanking after 10 mins.. edit /etc/lightdm/lightdm.conf, uncomment and change line:
+xserver-command=X -s 0 -dpms
+
+# Latency test
+cd ~/new_world/rt-tests
+sudo ./cyclictest  -p 80 -a -t -n -l 100000
+# /dev/cpu_dma_latency set to 0us
+policy: fifo: loadavg: 0.21 0.17 0.19 1/149 1421          
+
+T: 0 ( 1400) P:80 I:1000 C: 100000 Min:     10 Act:   16 Avg:   16 Max:      70
+T: 1 ( 1401) P:80 I:1500 C:  66669 Min:     10 Act:   17 Avg:   15 Max:      59
+T: 2 ( 1402) P:80 I:2000 C:  50001 Min:     10 Act:   14 Avg:   15 Max:      63
+T: 3 ( 1403) P:80 I:2500 C:  40001 Min:     10 Act:   15 Avg:   15 Max:      45
+
+# xhc04 pendant
+
+
+
+#------------------------------------
+# touchscreen
+#------------------------------------
+# Connected, shows splash rainbow but nothing else - need up-to-date firmware? Works
+# perfectly with a stock raspbian install.
+# All the display stuff is in the gpu stuff, in start.elf
+# But we don't want to touch the kernel..
+#
+# https://github.com/Hexxeh/rpi-update#skip_kernel
+sudo SKIP_KERNEL=1 rpi-update
+# This fails, with a stack trace during boot
+
+# Nothing to do with firmware, its the GL driver..
+# Full doesn't work
+# Fake boots ok
+
+# full kms      vc4-kms-v3d
+# fake kms      vc4-fkms-v3d
+
+dtoverlay=smi
+dtoverlay=smi-dev
+dtoverlay=vc4-fkms-v3d
+# fb no, smi yes
+
+[    5.456000] brcmfmac: F1 signature read @0x18000000=0x15264345
+[    5.465141] brcmfmac: brcmf_fw_map_chip_to_name: using brcm/brcmfmac43455-sdio.bin for chip 0x004345(17221) rev 0x000006
+[    5.488638] usbcore: registered new interface driver brcmfmac
+[    5.640906] vc4_firmware_kms 3f600000.firmwarekms: can't request region for resource [mem 0x3f600000-0x3f6000ff]
+[    5.641008] [drm:vc4_ioremap_regs [vc4]] *ERROR* Failed to map registers: -16
+[    5.641092] vc4-drm soc:gpu: failed to bind 3f600000.firmwarekms (ops vc4_fkms_ops [vc4]): -16
+[    5.641231] vc4-drm soc:gpu: master bind failed: -16
+[    5.642706] vc4-drm: probe of soc:gpu failed with error -16
+[    5.777460] brcmfmac: brcmf_c_preinit_dcmds: Firmware version = wl0: Feb 27 2018 03:15:32 version 7.45.154 (r684107 CY) FWID 01-4fbe0b04
+[    5.778212] brcmfmac: brcmf_c_preinit_dcmds: CLM version = API: 12.2 Data: 9.10.105 Compiler: 1.29.4 ClmImport: 1.36.3 Creation: 2018-03-09 18:56
+
+dtoverlay=smi
+dtoverlay=smi-dev
+dtoverlay=vc4-kms-v3d
+# fb no, smi yes
+[    5.509408] brcmfmac: F1 signature read @0x18000000=0x15264345
+[    5.520135] brcmfmac: brcmf_fw_map_chip_to_name: using brcm/brcmfmac43455-sdio.bin for chip 0x004345(17221) rev 0x000006
+[    5.538930] usbcore: registered new interface driver brcmfmac
+[    5.843320] brcmfmac: brcmf_c_preinit_dcmds: Firmware version = wl0: Feb 27 2018 03:15:32 version 7.45.154 (r684107 CY) FWID 01-4fbe0b04
+[    5.844083] brcmfmac: brcmf_c_preinit_dcmds: CLM version = API: 12.2 Data: 9.10.105 Compiler: 1.29.4 ClmImport: 1.36.3 Creation: 2018-03-09 18:56:28 
+[    5.888281] vc4_hdmi 3f902000.hdmi: vc4-hdmi-hifi <-> 3f902000.hdmi mapping ok
+
+#dtoverlay=smi
+#dtoverlay=smi-dev
+dtoverlay=vc4-kms-v3d
+# no fb, no smi
+[   10.898616] lan78xx 1-1.1.1:1.0 eth0: kevent 4 may have been dropped
+[   10.898633] ------------[ cut here ]------------
+[   10.898656] WARNING: CPU: 2 PID: 74 at kernel/irq/handle.c:151 __handle_irq_event_percpu+0x2cc/0x2d0
+[   10.898667] irq 169 handler irq_default_primary_handler+0x0/0x1c enabled interrupts
+[   10.898673] Modules linked in: evdev joydev vc4 drm_kms_helper brcmfmac drm brcmutil snd_soc_core cfg80211 snd_compress snd_pcm_dmaengine rfkill snd_pcm snd_timer snd syscopyarea sysfillrect sysimgblt fb_sys_fops i2c_bcm2835 rpi_backlight rpi_ft5406 uio_pdrv_genirq uio fixed ip_tables x_tables ipv6
+[   10.898754] CPU: 2 PID: 74 Comm: irq/62-dwc_otg_ Not tainted 4.14.34-rt27-v7 #2
+[   10.898757] Hardware name: BCM2835
+[   10.898781] [<8010fdf8>] (unwind_backtrace) from [<8010bf74>] (show_stack+0x20/0x24)
+[   10.898797] [<8010bf74>] (show_stack) from [<807a2e24>] (dump_stack+0xc8/0x10c)
+[   10.898813] [<807a2e24>] (dump_stack) from [<8011db1c>] (__warn+0xf8/0x110)
+[   10.898825] [<8011db1c>] (__warn) from [<8011db7c>] (warn_slowpath_fmt+0x48/0x50)
+[   10.898838] [<8011db7c>] (warn_slowpath_fmt) from [<8017a948>] (__handle_irq_event_percpu+0x2cc/0x2d0)
+[   10.898854] [<8017a948>] (__handle_irq_event_percpu) from [<8017a994>] (handle_irq_event_percpu+0x48/0x84)
+[   10.898867] [<8017a994>] (handle_irq_event_percpu) from [<8017aa58>] (handle_irq_event+0x88/0xc0)
+[   10.898883] [<8017aa58>] (handle_irq_event) from [<8017e194>] (handle_simple_irq+0x8c/0x104)
+[   10.898898] [<8017e194>] (handle_simple_irq) from [<8017984c>] (generic_handle_irq+0x34/0x44)
+[   10.898915] [<8017984c>] (generic_handle_irq) from [<805b78dc>] (intr_complete+0xc0/0x100)
+[   10.898933] [<805b78dc>] (intr_complete) from [<805c9d18>] (__usb_hcd_giveback_urb+0x9c/0x118)
+[   10.898950] [<805c9d18>] (__usb_hcd_giveback_urb) from [<805c9eb8>] (usb_hcd_giveback_urb+0x50/0x124)
+[   10.898967] [<805c9eb8>] (usb_hcd_giveback_urb) from [<805f4518>] (completion_tasklet_func+0x80/0xac)
+[   10.898983] [<805f4518>] (completion_tasklet_func) from [<806036ac>] (tasklet_callback+0x20/0x24)
+[   10.898999] [<806036ac>] (tasklet_callback) from [<80123e44>] (__tasklet_action.constprop.5+0x80/0x134)
+[   10.899014] [<80123e44>] (__tasklet_action.constprop.5) from [<80123fac>] (tasklet_hi_action+0x58/0x5c)
+[   10.899028] [<80123fac>] (tasklet_hi_action) from [<80123920>] (do_current_softirqs+0x1f4/0x408)
+[   10.899041] [<80123920>] (do_current_softirqs) from [<80123bcc>] (__local_bh_enable+0x98/0xb0)
+[   10.899054] [<80123bcc>] (__local_bh_enable) from [<8017bbe0>] (irq_forced_thread_fn+0x70/0x84)
+[   10.899069] [<8017bbe0>] (irq_forced_thread_fn) from [<8017bf14>] (irq_thread+0x12c/0x200)
+[   10.899083] [<8017bf14>] (irq_thread) from [<8013e844>] (kthread+0x144/0x174)
+[   10.899099] [<8013e844>] (kthread) from [<80107d94>] (ret_from_fork+0x14/0x20)
+[   10.899105] ---[ end trace 0000000000000002 ]---
+
+#dtoverlay=smi
+#dtoverlay=smi-dev
+dtoverlay=vc4-fkms-v3d
+
+# fb, no smi
+
+smi+lcd         yes
+kms+smi+lcd     no
+kms+lcd         no
+fkms+smi+lcd    no
+fkms+lcd        yes
+
+fkms+smi+hdmi   no
+kms+smi+hdmi    yes
+fkms+hdmi       yes
+
+hdmi		full kms	works
+hdmi		fake kms	works
+hdmi	smi	full kms	works
+hdmi	smi	fake kms	no display
+lcd		    full kms	no display
+lcd 		fake kms	works
+lcd 	smi full kms 	no display
+lcd 	smi fake kms 	no display
+
+
+
+
+vc4-kms-kippah-7inch - no gl acceleration
+
+It seems that fakeKMS is not compatible with SMI, but only fakeKMS works with the touchscreen.
+FakeKMS sits on top of dispmanx..
+
+
+# Something to to with this address here:
+[    5.640906] vc4_firmware_kms 3f600000.firmwarekms: can't request region for resource [mem 0x3f600000-0x3f6000ff]
+[    5.641008] [drm:vc4_ioremap_regs [vc4]] *ERROR* Failed to map registers: -16
+[    5.641092] vc4-drm soc:gpu: failed to bind 3f600000.firmwarekms (ops vc4_fkms_ops [vc4]): -16
+[    5.641231] vc4-drm soc:gpu: master bind failed: -16
+
+
+# extract current state of device tree, from https://www.raspberrypi.org/documentation/configuration/device-tree.md
+# 
+# Yeah, the fake KMS uses the SMI interface somehow tied to the display pipeline..
+
+
+#------------------------------------
+# Rebuilding machinekit on rpi, falling over because cannot allocate memory, don't use -j4!!
+#------------------------------------
+
+
+DISPLAY=:0 machinekit 
+
+# hazzy: 
+git clone https://github.com/KurtJacobson/hazzy.git
+sudo apt-get install python-pip
+pip install lxml
+
+# copy axis_mm.ini, replace DISPLAY= with path to hazzy
+DISPLAY =              /home/simonj/new_world/hazzy/hazzy/hazzy
+
+
+#------------------------------------
+# Attempt to build QtQuickVCP on RPi so we can use the 
+# machinekit-client
+#------------------------------------
+# https://github.com/machinekit/QtQuickVcp
+
+git clone https://github.com/machinekit/QtQuickVcp
+
+sudo apt-get install qtcreator
+sudo apt-get install qtdeclarative5-dev
+sudo apt-get install qt5-default
+
+cd QtQuickVcp
+mkdir rpibuild
+cd rpibuild
+qmake ..
+make
+sudo apt-get install qml-module-qt-labs-settings 
+#
+# No, massive stuff, builds eventually but doesn't work.
+# All this stuff is so bloated!
+
+# Trying with glade.. and gmaccapy, but this needs an old version to edit the UI
+# https://forum.linuxcnc.org/48-gladevcp/33309-glade-3-20-will-not-work-with-linuxcnc-please-follow-this-for-3-8-6?start=10
+
+
+sudo apt-get install libgtk2.0-0 intltool python-gtk2-dev libxml2-dev gtk-doc-tools gnome-doc-utils liblablgtk2-gnome-ocaml-dev libglade2-dev libgladeui-common python-gtkglext1 itstool
+wget ftp://ftp.gnome.org/pub/GNOME/sources/glade3/3.8/glade3-3.8.6.tar.xz
+tar -xpf glade3-3.8.6.tar.xz
+cd glade3-3.8.6
+./configure
+make 
+sudo make install
+
+# missing library, get .deb from https://packages.ubuntu.com/trusty/libgladeui-1-11
+sudo dpkg --install libgladeui-1-11_3.8.0-0ubuntu6_amd64.deb
+
+# Finally opens
+
+#
+#------------------------------------
+# Xmotion direct to fb gui for linuxcnc, porting to machinekit
+#------------------------------------
+# minor hacks to make it build against machinekit
+
+simonj@realtimepi:~/new_world/Xmotion $ git diff
+diff --git a/Makefile b/Makefile
+index 9583349..17d06d2 100755
+--- a/Makefile
++++ b/Makefile
+@@ -14,16 +14,18 @@ LIBS =
+ # General compiler flags
+ CXX_COMPILE_FLAGS = -Wextra -g -std=gnu++11
+ CC_COMPILE_FLAGS = -Wextra -g -std=gnu99
++
++RTAPI_FLAGS = -D RTAPI -D THREAD_FLAVOR_ID=RTAPI_RT_PREEMPT_ID
+ # Additional release-specific flags
+-RCOMPILE_FLAGS = -D NDEBUG
++RCOMPILE_FLAGS = -D NDEBUG $(RTAPI_FLAGS)
+ # Additional debug-specific flags
+-DCOMPILE_FLAGS = -D DEBUG
++DCOMPILE_FLAGS = -D DEBUG $(RTAPI_FLAGS)
+ # Additional debug-specific flags
+ SIM_COMPILE_FLAGS = -D SIM_MODE
+ # Add additional include paths
+-INCLUDES = -I $(SRC_PATH) `python-config --includes`
++INCLUDES = -I $(SRC_PATH) -I ../machinekit_rpi/include `python-config --includes`
+ # General linker settings
+-LINK_FLAGS = `python-config --libs`
++LINK_FLAGS = -L ../machinekit_rpi/lib `python-config --libs`
+ # Additional release-specific linker settings
+ RLINK_FLAGS = -lnml -llinuxcnc
+ # Additional debug-specific linker settings
+diff --git a/src/linuxcnc.cpp b/src/linuxcnc.cpp
+index 574e369..9442cdf 100755
+--- a/src/linuxcnc.cpp
++++ b/src/linuxcnc.cpp
+@@ -17,11 +17,12 @@
+ #include <linux/kd.h>
+ 
+ #ifndef SIM_MODE
+-  #include <linuxcnc/emc.hh>
+-  #include <linuxcnc/motion.h>
+-  #include <linuxcnc/emc_nml.hh>
+-  #include <linuxcnc/nml_oi.hh>
+-  #include <linuxcnc/timer.hh>
++  #include <emc.hh>
++  #include <hal_types.h>
++  #include <motion.h>
++  #include <emc_nml.hh>
++  #include <nml_oi.hh>
++  #include <timer.hh>
+ #endif
+ 
+ #include <iostream>
+
+# Make a machinekit config.ini using halui as the DISPLAY, make xhc04 a POSTGUI_HALFILE
+# Disable X
+sudo systemctl stop lightdm.service
+machinekit configs/ARM/RPi/halui.ini
+
+# in separate terminal:
+./bin/release/Xmotion
+
+
+
+
+
+#------------------------------------
+# Rpi zero servo control, web interface
+#------------------------------------
+
+# UV4L seems like a good starting point for vision 
+# https://www.linux-projects.org/uv4l/installation/
+#
+# uv4l has web server, configured by /etc/u4vl/uv4l-raspicam.conf
+# text overlay using /usr/share/uv4l/raspicam/text.json
+sudo apt-get install uv4l-webrtc-armv6
+sudo apt-get install uv4l-demos
+
+
+# Install pigpio
+#
+sudo apt-get update
+sudo apt-get install pigpio python-pigpio python3-pigpio
+
+# enable pigpiod to start at boot:
+sudo systemctl enable pigpiod
+
+
+# simple controller in /Network/simonj/new_world/printable_electronics/rpi/remote_servo
+# Relies on uv4l webrtc pipe
+cd
+sudo service uv4l_raspicam restart
+./controller.py
+sudo service uv4l_raspicam stop
+
+
+
+#
+# Going off uv4l, not open source, not obvious how to do what I want
+#
+# streameye : http mjpeg streamer using GPU
+# https://github.com/ccrisan/streameye
+git clone https://github.com/ccrisan/streameye.git
+cd streameye
+make
+sudo make install
+sudo apt-get install python-picamera
+
+./extras/raspimjpeg.py -w 640 -h 480 -r 30 |streameye
+# This works quite well, reasonable latency at 640x480x30
+#
+
+
+# Decode h264 in javascript!
+# https://github.com/131/h264-live-player
+# https://www.raspberrypi.org/forums/viewtopic.php?t=204921
+git clone https://github.com/131/h264-live-player.git
+cd h264-live-player
+sudo apt-get install npm
+npm install
+nodejs server-rpi.js
+
+# Very impressive! Some parameters hard coded in lib/_server.js and lib/raspivid.js
+
+
+
+#
+# Getting opencv v3.2 working
+# https://yoursunny.com/t/2018/install-OpenCV3-PiZero/
+echo 'deb [trusted=yes] http://dl.bintray.com/yoursunny/PiZero stretch-backports main' |\
+  sudo tee  /etc/apt/sources.list.d/bintray-yoursunny-PiZero.list
+sudo apt update
+sudo apt install python3-opencv
+# verify
+python3 -c 'import cv2; print(cv2.__version__)'
+
+
+#------------------------------------
+# RPi Zero read only filesystem
+#------------------------------------
+# https://yagrebu.net/unix/rpi-overlay.md
+# Simple instructions, works nicely!
+#
+sudo su
+echo overlay >>/etc/initramfs-tools/modules
+cd /etc/initramfs-tools/scripts
+wget https://yagrebu.net/unix/rpi-overlay/overlay
+update-initramfs -c -k $(uname -r)
+cp /boot/cmdline.txt /boot/cmdline.txt.orig
+# next line is kernel7.img for non-zeros
+echo "kernel=kernel.img" >> /boot/config.txt
+echo "initramfs initrd.img-4.14.50+" >> /boot/config.txt
+sed -i 's/^/boot=overlay /' /boot/cmdline.txt
+cp /boot/cmdline.txt /boot/cmdline.txt.overlay
+cd /usr/local/sbin
+wget https://yagrebu.net/unix/rpi-overlay/overctl
+chmod +x overctl
+reboot
+
+sudo overctl -w
+# to make rw at next reboot
+sudo overctl -r
+# to make ro at next reboot
+
+
+# Systemd start at boot
+pi@raspberrypi:/lib/systemd/system $ cat /lib/systemd/system/lifter.service 
+[Unit]
+Description=Lifter service
+After=multi-user.target
+
+[Service]
+ExecStart=/bin/bash /home/pi/democam
+WorkingDirectory=/home/pi
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+User=pi
+
+[Install]
+WantedBy=multi-user.target
+
+sudo systemctl start lifter.service
+sudo systemctl stop lifter.service
+
+sudo systemctl enable lifter.service
+
+
+
+#------------------------------------
+# Camera to opengl to shader to mjpeg
+#------------------------------------
+# 
+sudo apt-get install libraspberrypi-dev cmake
+
+# This will build with a cross compiler and is much faster
+git clone https://github.com/raspberrypi/userland.git
+cd userland
+./buildme
+
+
+
+
+# https://www.bigmessowires.com/2014/10/06/raspberry-pi-3d-performance-demo/
+git clone https://github.com/lvandeve/lodepng.git
+sudo apt-get install libsdl1.2-dev
+
+
+
+#------------------------------------
+# Dual screen HDMI and touch on RPi
+#------------------------------------
+
+# Live topic still: https://www.raspberrypi.org/forums/viewtopic.php?f=63&t=216399&sid=9abc1838c15dc1a554a55915712b9abb&start=300
+#
+#
+# Change /boot/config.txt to enable multiple framebuffers and set the HDMI as desktop
+echo "start_x=1" |sudo tee -a /boot/config.txt
+echo "max_framebuffers=2" |sudo tee -a /boot/config.txt
+echo "framebuffer_priority=2" |sudo tee -a /boot/config.txt
+
+# Get the specific kernel modules for 4.14.76-v7+
+sudo rpi-update 0018be6
+
+# Get kernel7.img and start_x.elf from https://drive.google.com/open?id=1Q5TQ1FEJtE0NgrUvr1cCXe4UMavmTh7H
+sudo cp kernel7.img /boot
+sudo cp start_x.elf /boot
+
+# Reboot
+sudo reboot -h 0
+
+# Run camera
+raspistill -t 0
+
+# This has desktop on HDMI and camera preview on touch screen
+
+
+
+
+
+#------------------------------------
+# Restoring tpuck prototype with RPi 3
+#------------------------------------
+# The SD card in the original RPi 2 does not have all the 
+# robot stuff on it, did I use for the mill?
+
+#log in
+cd /srv/simonj/new_world/printable_electronics/rpi/rpi_utils
+sudo make upload
+# no pigpio
+sudo apt-get install pigpio
+sudo make upload
+# Success
+
+
+# In /boot/config.txt Comment out dtoverlay=vcs-fkms-v3d, and add:
+dtoverlay=smi
+dtoverlay=smi-dev
+
+# Really bad cyclictest latency numbers, starting from scratch
+#
+# https://github.com/guysoft/RealtimePi
+wget http://unofficialpi.org/Distros/RealtimePi/2018-06-12_2018-04-18-realtimepi-stretch-lite-0.3.zip
+# Use etcher to flash
+
+# to /boot/config.txt 
+dtoverlay=smi
+dtoverlay=smi-dev
+
+# ssh aleady exists
+# eject and boot rpi
+ssh pi@192.168.0.20
+#password: raspberry
+
+sudo adduser simonj --uid 501
+sudo mkdir /srv/simonj
+echo "192.168.0.32:/volume1/simonj /srv/simonj nfs defaults,vers=3,rsize=8192,wsize=8192,timeo=10,intr 0 0" |sudo tee -a /etc/fstab
+sudo adduser simonj adm
+sudo adduser simonj sudo
+sudo adduser simonj dialout
+sudo adduser simonj cdrom
+sudo adduser simonj audio
+sudo adduser simonj video
+sudo adduser simonj plugdev
+sudo adduser simonj games
+sudo adduser simonj users
+sudo adduser simonj input
+sudo adduser simonj netdev
+sudo adduser simonj spi
+sudo adduser simonj i2c
+
+# Log in as simonj
+cd /srv/simonj/new_world/rt-tests
+sudo ./cyclictest -p 80 -a -t -n -l 100000
+# /dev/cpu_dma_latency set to 0us
+policy: fifo: loadavg: 0.49 0.39 0.17 1/139 732          
+
+T: 0 (  723) P:80 I:1000 C: 100000 Min:      4 Act:   18 Avg:   15 Max:      68
+T: 1 (  724) P:80 I:1500 C:  66669 Min:      5 Act:   16 Avg:   16 Max:      53
+T: 2 (  725) P:80 I:2000 C:  50001 Min:      4 Act:   11 Avg:   15 Max:      56
+T: 3 (  726) P:80 I:2500 C:  40001 Min:      4 Act:   14 Avg:   14 Max:      47
+simonj@realtimepi:/srv/simonj/new_world/rt-tests $ 
+
+# Good results
+#
+# Make available to all users
+echo '* - rtprio 99' |sudo tee -a /etc/security/limits.conf
+
+# Make SMI available to all users
+echo 'SUBSYSTEM=="bcm2835-smi-dev", GROUP="gpio", MODE="0660"' |sudo tee -a /etc/udev/rules.d/99-com.rules
+
+# Machinekit doesn't work, missing libraries
+source new_world/machinekit_rpi/scripts/rip-environment
+halrun -I
+msgd:0 stopped
+rtapi:0 stopped
+rtapi_msgd command:  /home/simonj/new_world/machinekit_rpi/libexec/rtapi_msgd --instance=0 --rtmsglevel=1 --usrmsglevel=1 --halsize=524288
+/home/simonj/new_world/machinekit_rpi/libexec/rtapi_msgd: error while loading shared libraries: libprotobuf.so.10: cannot open shared object file: No such file or directory
+rtapi_msgd startup failed - aborting
+rtapi_app command:  /home/simonj/new_world/machinekit_rpi/libexec/rtapi_app_rt-preempt --instance=0
+/home/simonj/new_world/machinekit_rpi/libexec/rtapi_app_rt-preempt: error while loading shared libraries: libprotobuf.so.10: cannot open shared object file: No such file or directory
+rtapi_app startup failed; aborting
+halcmd: error while loading shared libraries: libprotobuf.so.10: cannot open shared object file: No such file or directory
+halcmd: error while loading shared libraries: libprotobuf.so.10: cannot open shared object file: No such file or directory
+halcmd: error while loading shared libraries: libprotobuf.so.10: cannot open shared object file: No such file or directory
+
+
+# Need to install, then purge, to get all the runtime dependencies
+sudo apt-get update
+sudo apt-get install dirmngr
+sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 43DDF224
+sudo sh -c "echo 'deb http://deb.machinekit.io/debian stretch main' > /etc/apt/sources.list.d/machinekit.list"
+sudo apt-get update
+sudo apt-get install machinekit-rt-preempt
+sudo apt-get remove --purge machinekit
+
+# machinekit now working, get controller working
+#
+# https://pimylifeup.com/raspberry-pi-playstation-controllers/
+#
+sudo apt-get install bluetooth blueman bluez-hcidump checkinstall libusb-dev libbluetooth-dev joystick pkg-config
+sudo apt-get install bluetooth blueman bluez-hcidump checkinstall libusb-dev libbluetooth-dev joystick pkg-config
+wget http://www.pabr.org/sixlinux/sixpair.c
+gcc -o sixpair sixpair.c -lusb
+
+# Plug in via usb and do
+sudo ./sixpair
+# then unplug
+sudo bluetoothctl
+agent on
+default-agent
+scan on
+# press PS button, note MAC address of PS controller
+connect <mac address>
+trust <mac address>
+quit
+sudo reboot
+
+
+
+
+
+#------------------------------------
+# RPi Zero lifter - change to streaming
+#------------------------------------
+# /boot/config.txt
+gpu_mem=128
+
+
+
+#------------------------------------
+# video streaming tests
+#------------------------------------
+# rpi zero one end, ethernet over usb, imac at other end
+#
+# https://stamm-wilbrandt.de/en/Raspberry_camera.html#gstreamer
+# 
+# gst-rpicamsrc
+sudo apt-get install autoconf automake libtool pkg-config libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libraspberrypi-dev gstreamer1.0-tools gstreamer1.0-omx-rpi gstreamer1.0-plugins-good
+sudo modprobe bcm2835-v4l2
+
+# on rpi
+gst-launch-1.0 v4l2src device=/dev/video0 ! video/x-raw,width=640,height=480,framerate=30/1 ! videoconvert ! jpegenc !  rtpjpegpay !  udpsink host=192.168.2.1 port=5200
+# on osx
+gst-launch-1.0 udpsrc port=5200 !  application/x-rtp, encoding-name=JPEG,payload=26 !  rtpjpegdepay !  jpegdec ! videoconvert ! autovideosink
+
+# Three frames, two captures, capture screenshot while filming https://www.estopwatch.net/
+# 467 590 1120 475
+# Some frames glitch and take longer
+
+# Streameye to browser
+# on rpi
+./extras/raspimjpeg.py -w 640 -h 480 -r 30 | streameye
+# on osx: browse to 192.168.2.2:8080
+# 407 232 234 292
+
+# streameye to gstreamer pipeline
+# on rpi
+./extras/raspimjpeg.py -w 640 -h 480 -r 30 | streameye
+# on osx:
+gst-launch-1.0 -v souphttpsrc location=http://192.168.2.2:8080 ! jpegdec ! autovideosink
+# 175 174 171 177
+
+# gstreamer mjpeg from v4l2 to gstreamer pipeline
+# on rpi
+gst-launch-1.0 -v v4l2src ! "image/jpeg,width=640,height=480,framerate=30/1" ! rtpjpegpay ! udpsink host=192.168.2.1 port=5001
+# on osx
+gst-launch-1.0 -e -v udpsrc port=5001 ! application/x-rtp, encoding-name=JPEG, payload=26 ! rtpjpegdepay ! jpegdec ! autovideosink
+# 296 175 175 177
+
+
+
+
+
+#------------------------------------
+# Configs of the three motor drivers
+#------------------------------------
+# clone axis 0
+startup_motor_calibration = False (bool)
+startup_encoder_index_search = False (bool)
+startup_encoder_offset_calibration = False (bool)
+startup_closed_loop_control = True (bool)
+startup_sensorless_control = False (bool)
+enable_step_dir = True (bool)
+counts_per_step = 10.0 (float)
+ramp_up_time = 0.4000000059604645 (float)
+ramp_up_distance = 12.566370964050293 (float)
+spin_up_current = 10.0 (float)
+spin_up_acceleration = 400.0 (float)
+spin_up_target_vel = 400.0 (float)
+# orig axis 0
+startup_motor_calibration = False (bool)
+startup_encoder_index_search = False (bool)
+startup_encoder_offset_calibration = False (bool)
+startup_closed_loop_control = True (bool)
+startup_sensorless_control = False (bool)
+enable_step_dir = True (bool)
+counts_per_step = 32.0 (float)
+ramp_up_time = 0.4000000059604645 (float)
+ramp_up_distance = 12.566370964050293 (float)
+spin_up_current = 10.0 (float)
+spin_up_acceleration = 400.0 (float)
+spin_up_target_vel = 400.0 (float)
+# orig axis 1
+startup_motor_calibration = False (bool)
+startup_encoder_index_search = False (bool)
+startup_encoder_offset_calibration = False (bool)
+startup_closed_loop_control = True (bool)
+startup_sensorless_control = False (bool)
+enable_step_dir = True (bool)
+counts_per_step = 32.0 (float)
+ramp_up_time = 0.4000000059604645 (float)
+ramp_up_distance = 12.566370964050293 (float)
+spin_up_current = 10.0 (float)
+spin_up_acceleration = 400.0 (float)
+spin_up_target_vel = 400.0 (float)
+
+
+#------------------------------------
+# static networking with rpi zero over usb
+#------------------------------------
+# RPI networking now controlled with /etc/dhcpcd.conf
+#
+
+
+#------------------------------------
+# Mill config, using same fpga as robot
+#------------------------------------
+# /Network/simonj/new_world/printable_electronics/rpi/testfpga
+# 
+
+
+
+
+#------------------------------------
+# Getting a motor working again..
+# Trying Turnigy Air L03730A
+#------------------------------------
+odrv0.erase_configuration()
+odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+odrv0.axis0.encoder.config.pre_calibrated = True
+odrv0.axis0.motor.config.pre_calibrated = True
+odrv0.axis0.encoder.config.cpr = 32768
+odrv0.axis0.encoder.config.use_index = False
+odrv0.axis0.controller.config.control_mode = CTRL_MODE_POSITION_CONTROL
+odrv0.axis0.controller.config.pos_gain = 50
+odrv0.axis0.controller.config.vel_gain = 0.000018
+odrv0.axis0.controller.config.vel_limit = 5e6
+odrv0.axis0.controller.config.vel_integrator_gain = 0.0
+odrv0.save_configuration()
+
+odrv0.axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+odrv0.axis0.controller.pos_setpoint  = 1000
+
+# Really floppy
+odrv0.axis0.motor.config.current_lim = 20
+
+#
+# As I thought earlier, this seems to be a really poor motor, no way to get stable positioning
+#
+
+
+#------------------------------------
+# PROPPOWERv2 35-36 910KV
+#------------------------------------
+odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+odrv0.axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+
+odrv0.axis0.motor.config.current_lim = 15
+# Much stiffer, but getting brake current out of range
+# Hmm, still seems to be enabled?
+odrv0.config.brake_resistance = 0
+
+# and ERROR_DRV_FAULT
+
+# Parameters from actually working drive
+In [2]: odrv0.config
+Out[2]: 
+brake_resistance = 0.4699999988079071 (float)
+enable_uart = False (bool)
+enable_i2c_instead_of_can = False (bool)
+enable_ascii_protocol_on_usb = True (bool)
+dc_bus_undervoltage_trip_level = 8.0 (float)
+dc_bus_overvoltage_trip_level = 25.920001983642578 (float)
+In [3]: odrv0.axis0
+Out[3]: 
+error = 0x0000 (int)
+enable_step_dir = True (bool)
+current_state = 9 (int)
+requested_state = 0 (int)
+loop_counter = 1020334 (int)
+index = 1229802040 (int)
+mod_depth = 0.0 (float)
+get_perror()
+set_imap(m: float)
+In [4]: odrv0.axis0.config
+Out[4]: 
+startup_motor_calibration = False (bool)
+startup_encoder_index_search = False (bool)
+startup_encoder_offset_calibration = False (bool)
+startup_closed_loop_control = True (bool)
+startup_sensorless_control = False (bool)
+enable_step_dir = True (bool)
+counts_per_step = 10.0 (float)
+ramp_up_time = 0.4000000059604645 (float)
+ramp_up_distance = 12.566370964050293 (float)
+spin_up_current = 10.0 (float)
+spin_up_acceleration = 400.0 (float)
+spin_up_target_vel = 400.0 (float)
+In [5]: odrv0.axis0.motor
+Out[5]: 
+error = 0x0000 (int)
+armed_state = 3 (int)
+is_calibrated = True (bool)
+current_meas_phB = 0.8133293390274048 (float)
+current_meas_phC = -0.3139694333076477 (float)
+DC_calib_phB = -2.424635887145996 (float)
+DC_calib_phC = 0.5953736305236816 (float)
+phase_current_rev_gain = 0.05000000074505806 (float)
+current_control:
+  p_gain = 0.005515080876648426 (float)
+  i_gain = 40.39515686035156 (float)
+  v_current_control_integral_d = -0.012889822944998741 (float)
+  v_current_control_integral_q = -0.04348846524953842 (float)
+  Ibus = 0.0017907196888700128 (float)
+  final_v_alpha = -0.03607619181275368 (float)
+  final_v_beta = 0.03008917160332203 (float)
+  Iq_setpoint = -0.5812609791755676 (float)
+  Iq_measured = -0.4402182698249817 (float)
+  max_allowed_current = 71.99999237060547 (float)
+gate_driver:
+  drv_fault = 0 (int)
+timing_log:
+  TIMING_LOG_GENERAL = 0 (int)
+  TIMING_LOG_ADC_CB_I = 1007 (int)
+  TIMING_LOG_ADC_CB_DC = 10933 (int)
+  TIMING_LOG_MEAS_R = 0 (int)
+  TIMING_LOG_MEAS_L = 0 (int)
+  TIMING_LOG_ENC_CALIB = 0 (int)
+  TIMING_LOG_IDX_SEARCH = 0 (int)
+  TIMING_LOG_FOC_VOLTAGE = 0 (int)
+  TIMING_LOG_FOC_CURRENT = 8343 (int)
+config:
+  pre_calibrated = True (bool)
+  pole_pairs = 7 (int)
+  calibration_current = 10.0 (float)
+  resistance_calib_max_voltage = 1.0 (float)
+  phase_inductance = 5.5150808293547016e-06 (float)
+  phase_resistance = 0.040395159274339676 (float)
+  direction = -1 (int)
+  motor_type = 0 (int)
+  current_lim = 10.0 (float)
+  requested_current_range = 70.0 (float)
+  current_control_bandwidth = 1000.0 (float)
+set_current_control_bandwidth(current_control_bandwidth: float)
+In [6]: odrv0.axis0.controller
+Out[6]: 
+pos_setpoint = 0.0 (float)
+vel_setpoint = 0.0 (float)
+vel_integrator_current = 0.0 (float)
+current_setpoint = 0.0 (float)
+config:
+  control_mode = 3 (int)
+  pos_gain = 250.0 (float)
+  vel_gain = 1.9999999494757503e-05 (float)
+  pos_integrator_gain = 0.0 (float)
+  vel_integrator_gain = 0.0 (float)
+  vel_limit = 5000000.0 (float)
+  use_anticogging = True (bool)
+anticogging:
+  calib_anticogging = False (bool)
+  calib_pos_threshold = 5.0 (float)
+  calib_vel_threshold = 1000.0 (float)
+valid_cogging_map = True (bool)
+read_fft_map(index: int)
+write_fft_map(index: int, val: float)
+calc_cogging_map()
+read_cogging_map(index: int)
+write_cogging_map(index: int, val: float)
+clear_cogging_map()
+set_pos_setpoint(pos_setpoint: float, vel_feed_forward: float, current_feed_forward: float)
+set_vel_setpoint(vel_setpoint: float, current_feed_forward: float)
+set_current_setpoint(current_setpoint: float)
+move_to_pos(goal_point: float)
+start_anticogging_calibration()
+In [7]: odrv0.axis0.encoder
+Out[7]: 
+error = 0x0000 (int)
+is_ready = True (bool)
+index_found = False (bool)
+shadow_count = 7 (int)
+count_in_cpr = 8 (int)
+interpolation = 1.0 (float)
+phase = 2.1406631469726562 (float)
+phys_phase = -0.5915971398353577 (float)
+pos_estimate = 11.646432876586914 (float)
+pos_cpr = 12.805733680725098 (float)
+hall_state = 0 (int)
+vel_estimate = 1698.666748046875 (float)
+config:
+  mode = 2 (int)
+  use_index = False (bool)
+  pre_calibrated = True (bool)
+  idx_search_speed = 10.0 (float)
+  cpr = 32768 (int)
+  offset = 3095 (int)
+  offset_float = 1.2907414436340332 (float)
+  bandwidth = 1000.0 (float)
+  calib_range = 0.019999999552965164 (float)
+
+
+
+
+
+#---------------------------------
+# Need an SPI interface to do fast reads of TLE5012 encoder
+#---------------------------------
+# This neeed stm32cubemx
+#
+# https://www.st.com/content/st_com/en/products/development-tools/software-development-tools/stm32-software-development-tools/stm32-configurators-and-code-generators/stm32cubemx.html?dl=5OiwkD4qy66NkyjpPb7fyA%3D%3D%2ClidksUmwTDXzTk%2FotoGNiF5b1stz6JAEbvWD2sV6yW3lC1HAa%2Behz64SpA64qpRLRUgrLGi35EGrYe3L3RnSr5j0FAvTjWxX95CVlrcnoWkqlYJ29zRdpCt36gU9VlTk4Ypq9VRpY4D4GXc6Ny%2Fd24DTJSAyTZZYnPl9v8qczLYS0L4uOG8TaKy9%2Fvq8PlogTHqNV4EhvzQMTf1QThWEGwccBysM%2BBE%2BOM53qS%2FkBo0B8FYMtqh47Q%2BRqqVZElzKNnNy44XzjLjxcyntuiwtPtM5MicZhDXhjF%2FeR5IarTLL4qwXSdjATNXbcCX3ORTsuh9Syx7UE78LCvgAABwH7bXonS2zG2b3GzEVxj2oJBc%3D
+# Version 5.2.0 needs 10.13 OSX
+# Version 5.0.1
+
+#
+# Ok, cant have SPI on those ports.
+
+#
+# Something else was wrong, now seems to be able to calibrate motor - needed to change limit line 325 motor.cpp
+#
+#
+# Inductance very low, needed to up the calibration current..
+odrv0.axis0.motor.config.calibration_current = 15
+odrv0.axis0.motor.config.current_lim = 15
+odrv0.axis0.encoder.config.cpr = 32768
+odrv0.axis0.encoder.config.use_index = False
+odrv0.axis0.encoder.config.pre_calibrated = True
+odrv0.axis0.motor.config.pre_calibrated = True
+
+
+odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+
+
+#!!!! Fitted wrong osc, 12MHz instead of 8MHz, need to alter
+RCC.HSE_VALUE=8000000
+# in Odrive.ioc and regenerate STM32CubeMX
+
+
+#
+# Stack sizes are causing configuration save problems
+# usb               512     256
+# default task      1024    256
+# state_machine     4*512   4*256
+# analog_polling    4*512   4*256
+# uart_server       1024    256     also disable uart in config
+# usb_server        1024    256
+
+# Builds and seems to run
+odrv0.axis0.motor.config.calibration_current = 15
+odrv0.axis0.motor.config.current_lim = 15
+odrv0.axis0.encoder.config.cpr = 32768
+odrv0.axis0.encoder.config.use_index = False
+odrv0.save_configuration()
+odrv0.reboot()
+
+
+# unreliability of config save
+odrv0.erase_configuration()
+odrv0.save_configuration()
+odrv0.reboot()
+
+#ok
+#fail
+#ok
+#fail
+#fail
+#fail
+#fail
+# re-upload
+#ok
+#fail
+#didnt reboot
+# re-upload
+#fail
+#ok
+#fail
+#ok
+#ok
+#fail
+
+

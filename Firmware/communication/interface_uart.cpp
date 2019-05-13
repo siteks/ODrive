@@ -98,7 +98,7 @@ void start_uart_server() {
     dma_last_rcv_idx = UART_RX_BUFFER_SIZE - huart4.hdmarx->Instance->NDTR;
 
     // Start UART communication thread
-    osThreadDef(uart_server_thread_def, uart_server_thread, osPriorityNormal, 0, 1024 /* the ascii protocol needs considerable stack space */);
+    osThreadDef(uart_server_thread_def, uart_server_thread, osPriorityNormal, 0, 256 /* the ascii protocol needs considerable stack space */);
     uart_thread = osThreadCreate(osThread(uart_server_thread_def), NULL);
 }
 

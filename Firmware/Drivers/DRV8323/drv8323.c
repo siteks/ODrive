@@ -94,7 +94,7 @@ void DRV8323_enable(DRV8323_Handle handle) {
 // } // end of DRV8323_getDcCalMode() function
 
 DRV8323_FaultType_e DRV8323_getFaultType(DRV8323_Handle handle) {
-    DRV8323_Word_t readWord;
+    volatile DRV8323_Word_t readWord;
     DRV8323_FaultType_e faultType = DRV8323_FaultType_NoFault;
 
     // read the data
@@ -318,18 +318,18 @@ uint16_t DRV8323_readSpi(DRV8323_Handle handle, const DRV8323_RegName_e regName)
     uint16_t zerobuff = 0;
     uint16_t controlword = (uint16_t)DRV8323_buildCtrlWord(DRV8323_CtrlMode_Read, regName, 0);
     uint16_t recbuff = 0xbeef;
-    HAL_SPI_Transmit(handle->spiHandle, (uint8_t *)(&controlword), 1, 1000);
+    // HAL_SPI_Transmit(handle->spiHandle, (uint8_t *)(&controlword), 1, 1000);
 
-    // Datasheet says you don't have to pulse the nCS between transfers, (16 clocks should commit the transfer)
-    // but for some reason you actually need to pulse it.
-    // Actuate chipselect
-    HAL_GPIO_WritePin(handle->nCSgpioHandle, handle->nCSgpioNumber, GPIO_PIN_SET);
-    delay_us(1);
-    // Actuate chipselect
-    HAL_GPIO_WritePin(handle->nCSgpioHandle, handle->nCSgpioNumber, GPIO_PIN_RESET);
-    delay_us(1);
+    // // Datasheet says you don't have to pulse the nCS between transfers, (16 clocks should commit the transfer)
+    // // but for some reason you actually need to pulse it.
+    // // Actuate chipselect
+    // HAL_GPIO_WritePin(handle->nCSgpioHandle, handle->nCSgpioNumber, GPIO_PIN_SET);
+    // delay_us(1);
+    // // Actuate chipselect
+    // HAL_GPIO_WritePin(handle->nCSgpioHandle, handle->nCSgpioNumber, GPIO_PIN_RESET);
+    // delay_us(1);
 
-    HAL_SPI_TransmitReceive(handle->spiHandle, (uint8_t *)(&zerobuff), (uint8_t *)(&recbuff), 1, 1000);
+    HAL_SPI_TransmitReceive(handle->spiHandle, (uint8_t *)(&controlword), (uint8_t *)(&recbuff), 1, 1000);
     delay_us(1);
 
     // Actuate chipselect
@@ -337,7 +337,6 @@ uint16_t DRV8323_readSpi(DRV8323_Handle handle, const DRV8323_RegName_e regName)
     delay_us(1);
 
     assert(recbuff != 0xbeef);
-
     // sj hack
     recbuff = 0;
     return (recbuff & DRV8323_DATA_MASK);

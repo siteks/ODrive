@@ -47,6 +47,8 @@ public:
         bool find_idx_on_lockin_only = false; // Only be sensitive during lockin scan constant vel state
         bool idx_search_unidirectional = false; // Only allow index search in known direction
         bool ignore_illegal_hall_state = false; // dont error on bad states like 000 or 111
+        uint16_t phase = 0;
+        uint16_t data = 0;
     };
 
     Encoder(const EncoderHardwareConfig_t& hw_config,
