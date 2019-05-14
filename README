@@ -2787,14 +2787,46 @@ odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
 odrv0.axis0.encoder.config.pre_calibrated = True
 odrv0.axis0.motor.config.pre_calibrated = True
 odrv0.axis0.controller.config.vel_limit = 5e6
-odrv0.axis0.controller.config.pos_gain = 100
-odrv0.axis0.controller.config.vel_gain = 0.0002
+odrv0.axis0.controller.config.pos_gain = 70
+odrv0.axis0.controller.config.vel_gain = 0.0001
+odrv0.axis0.controller.config.vel_integrator_gain = 0.001
 odrv0.axis0.motor.config.current_lim = 40
 
 odrv0.save_configuration()
 
 odrv0.axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
-odrv0.axis0.controller.pos_setpoint  = 1000
+
+odrv0.axis0.controller.start_anticogging_calibration()
+# Fails at position 2616
+
+p       pi      v       vi
+50      0       0.0002  0.001       
+
+# by alterning v_gain on-the-fly as cog map calibrated
+# between 0.00015 and 0.00035 depending vibration, hunting etc
+# higher for slow hunting
+# lower for fast vibration
+# 
+# Finally works sort of ok
 
 
+# Sunnysky x2814
+odrv0.erase_configuration()
+odrv0.reboot()
+odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+  phase_inductance = 1.394697619616636e-06 (float)
+  phase_resistance = 0.01505797915160656 (float)
 
+odrv0.axis0.encoder.config.pre_calibrated = True
+odrv0.axis0.motor.config.pre_calibrated = True
+odrv0.axis0.controller.config.vel_limit = 5e6
+odrv0.axis0.controller.config.pos_gain = 70
+odrv0.axis0.controller.config.vel_gain = 0.0001
+odrv0.axis0.controller.config.vel_integrator_gain = 0.001
+odrv0.axis0.motor.config.current_lim = 40
+odrv0.save_configuration()
+odrv0.reboot() 
+
+odrv0.axis0.controller.start_anticogging_calibration()
+# quite slow to calibrate, but seems possible to find sensible settings rather than 
+# contually changing.. hmm, maybe not
