@@ -337,6 +337,12 @@ uint16_t DRV8323_readSpi(DRV8323_Handle handle, const DRV8323_RegName_e regName)
     HAL_GPIO_WritePin(handle->nCSgpioHandle, handle->nCSgpioNumber, GPIO_PIN_SET);
     delay_us(1);
 
+
+    if (recbuff == 0xffff)
+    {
+        // no power to drv8323, don't error
+        recbuff = 0;
+    }
     assert(recbuff != 0xbeef);
     // sj hack
     //recbuff = 0;
