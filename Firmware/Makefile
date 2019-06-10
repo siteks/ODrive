@@ -11,7 +11,7 @@ OPENOCD := openocd -f interface/stlink-v2.cfg \
 
 
 all:
-	@tup --quiet --no-environ-check
+	@tup  --no-environ-check
 
 flash: all
 	$(OPENOCD) -c init \
